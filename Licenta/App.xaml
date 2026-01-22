@@ -1,0 +1,20 @@
+﻿<Application x:Class="WifiSignalOptimizer.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:WifiSignalOptimizer"
+             StartupUri="Views/MainWindow.xaml">
+
+    <Application.Resources>
+        <!-- Value Converters -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+
+        <!-- Invert Boolean Converter -->
+        <local:InvertBooleanConverter x:Key="InvertBoolConverter"/>
+
+        <!-- Null to Visibility Converter -->
+        <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+
+        <!-- Invert Null to Visibility Converter -->
+        <local:InvertNullToVisibilityConverter x:Key="InvertNullToVisibilityConverter"/>
+    </Application.Resources>
+</Application>
