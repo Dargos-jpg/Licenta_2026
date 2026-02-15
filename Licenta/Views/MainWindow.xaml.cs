@@ -70,8 +70,9 @@ public partial class MainWindow : Window
         _imageTransformGroup.Children.Add(_rotateTransform);
         _imageTransformGroup.Children.Add(_translateTransform);
 
-        FloorPlanImage.RenderTransform = _imageTransformGroup;
-        FloorPlanImage.RenderTransformOrigin = new Point(0.5, 0.5);
+        // ✅ SCHIMBARE: Aplicăm transformările pe MapContent în loc de FloorPlanImage
+        MapContent.RenderTransform = _imageTransformGroup;
+        MapContent.RenderTransformOrigin = new Point(0.5, 0.5);
     }
 
     /// <summary>
@@ -92,6 +93,10 @@ public partial class MainWindow : Window
         {
             MapCanvas.Width = _viewModel.FloorPlan.PixelWidth;
             MapCanvas.Height = _viewModel.FloorPlan.PixelHeight;
+
+            // ✅ ADĂUGAT: Setează dimensiunea containerului
+            MapContent.Width = _viewModel.FloorPlan.PixelWidth;
+            MapContent.Height = _viewModel.FloorPlan.PixelHeight;
         }
     }
 
@@ -115,22 +120,22 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Start dragging the image
+    /// Start dragging the map
     /// </summary>
-    private void FloorPlanImage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void MapContent_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_viewModel.FloorPlan == null) return;
 
         _isDragging = true;
         _lastMousePosition = e.GetPosition(MapCanvas);
-        FloorPlanImage.CaptureMouse();
+        MapContent.CaptureMouse();
         e.Handled = true;
     }
 
     /// <summary>
-    /// Move the image while dragging
+    /// Move the map while dragging
     /// </summary>
-    private void FloorPlanImage_MouseMove(object sender, MouseEventArgs e)
+    private void MapContent_MouseMove(object sender, MouseEventArgs e)
     {
         if (!_isDragging || _viewModel.FloorPlan == null) return;
 
@@ -146,16 +151,41 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Stop dragging the image
+    /// Stop dragging the map
     /// </summary>
-    private void FloorPlanImage_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    private void MapContent_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (_isDragging)
         {
             _isDragging = false;
-            FloorPlanImage.ReleaseMouseCapture();
+            MapContent.ReleaseMouseCapture();
             e.Handled = true;
         }
+    }
+
+    /// <summary>
+    /// Handles RIGHT mouse click to place survey points
+    /// </summary>
+    private void MapContent_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel.FloorPlan == null)
+            return;
+
+        // ✅ CRITICO: Coordonatele relative la MapContent (sistemul transformat)
+        var clickPosition = e.GetPosition(MapContent);
+
+        // Get strongest signal from current scan
+        int strongestSignal = _viewModel.VisibleNetworks.Count > 0
+            ? _viewModel.VisibleNetworks.Max(n => n.SignalStrength)
+            : -90; // Default weak signal if no networks
+
+        // Draw survey point with color based on signal strength
+        DrawSurveyPoint(clickPosition, strongestSignal);
+
+        // Record the survey point with current WiFi data
+        _viewModel.RecordPointCommand.Execute(clickPosition);
+
+        e.Handled = true;
     }
 
     /// <summary>
@@ -178,28 +208,6 @@ public partial class MainWindow : Window
             ResetImageTransformations();
             e.Handled = true;
         }
-    }
-
-    /// <summary>
-    /// Handles map canvas clicks to record survey points
-    /// </summary>
-    private void MapCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (_viewModel.FloorPlan == null || _isDragging)
-            return;
-
-        var clickPosition = e.GetPosition(SurveyPointsCanvas);
-
-        // Get strongest signal from current scan
-        int strongestSignal = _viewModel.VisibleNetworks.Count > 0
-            ? _viewModel.VisibleNetworks.Max(n => n.SignalStrength)
-            : -90; // Default weak signal if no networks
-
-        // Draw survey point with color based on signal strength
-        DrawSurveyPoint(clickPosition, strongestSignal);
-
-        // Record the survey point with current WiFi data
-        _viewModel.RecordPointCommand.Execute(clickPosition);
     }
 
     /// <summary>
@@ -235,13 +243,12 @@ public partial class MainWindow : Window
             StrokeThickness = 2
         };
 
-        // Position elements (centered on click point)
+        // ✅ SCHIMBARE: Desenăm pe SurveyPointsCanvas care e în MapContent
         Canvas.SetLeft(outline, position.X - outlineSize / 2);
         Canvas.SetTop(outline, position.Y - outlineSize / 2);
         Canvas.SetLeft(dot, position.X - dotSize / 2);
         Canvas.SetTop(dot, position.Y - dotSize / 2);
 
-        // Add to canvas
         SurveyPointsCanvas.Children.Add(outline);
         SurveyPointsCanvas.Children.Add(dot);
 

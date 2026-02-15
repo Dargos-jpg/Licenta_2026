@@ -49,6 +49,15 @@ public sealed class SurveyPoint
             ? DetectedNetworks.Min(n => n.SignalStrength)
             : null;
 
+    // ---------------------------------------------------------
+    // MODIFICAREA PENTRU HEATMAP (Săptămâna 9)
+    // ---------------------------------------------------------
+    /// <summary>
+    /// Proprietate "fațadă" necesară pentru HeatmapService.
+    /// Returnează semnalul maxim (Coverage Map) sau -100 dacă e gol.
+    /// </summary>
+    public int SignalStrength => StrongestSignal ?? -100;
+
     public override string ToString() =>
         $"Point ({X:F1}, {Y:F1}) - {DetectedNetworks.Count} networks @ {Timestamp:HH:mm:ss}";
 }

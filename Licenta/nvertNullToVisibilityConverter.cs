@@ -19,3 +19,4 @@ namespace WifiSignalOptimizer
             throw new NotImplementedException();
         }
     }
+}

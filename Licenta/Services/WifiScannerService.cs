@@ -73,7 +73,7 @@ public sealed class WifiScannerService : IWifiScannerService
                         var wifiNetwork = new WifiNetwork
                         {
                             SSID = network.Ssid.ToString(),
-                            BSSID = FormatBssid(network.Bssid),
+                            BSSID = network.Bssid?.ToString() ?? "00:00:00:00:00:00",
                             SignalStrength = network.SignalStrength,
                             Channel = GetChannelFromFrequency(network.Frequency)
                         };

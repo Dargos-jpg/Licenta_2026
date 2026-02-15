@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -24,6 +25,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private BitmapImage? _floorPlan;
+
+    [ObservableProperty]
+    private ImageSource? _heatmapOverlay;
 
     [ObservableProperty]
     private bool _isScanning;
@@ -63,6 +67,9 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 FloorPlan = bitmap;
                 StatusMessage = $"Plan încărcat: {Path.GetFileName(dialog.FileName)}";
+
+                // Clear heatmap when new map is loaded
+                HeatmapOverlay = null;
             }
             else
             {
@@ -136,6 +143,54 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Generates a heatmap overlay based on recorded survey points
+    /// </summary>
+    [RelayCommand]
+    private async Task GenerateHeatmapAsync()
+    {
+        if (_surveyPoints.Count < 2)
+        {
+            StatusMessage = "Necesare cel puțin 2 puncte pentru generarea heatmap-ului.";
+            return;
+        }
+
+        if (FloorPlan == null)
+        {
+            StatusMessage = "Încărcați mai întâi un plan.";
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Se generează heatmap-ul...";
+
+            // Get dimensions from floor plan
+            int width = FloorPlan.PixelWidth;
+            int height = FloorPlan.PixelHeight;
+
+            // Run on background thread to avoid UI freeze
+            var heatmap = await Task.Run(() =>
+            {
+                var service = new HeatmapService();
+                return service.GenerateHeatmap(_surveyPoints, width, height);
+            });
+
+            // Freeze the bitmap for cross-thread access
+            if (heatmap != null && heatmap.CanFreeze)
+            {
+                heatmap.Freeze();
+            }
+
+            HeatmapOverlay = heatmap;
+            StatusMessage = $"Heatmap generat cu succes din {_surveyPoints.Count} puncte.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Eroare la generarea heatmap-ului: {ex.Message}";
+        }
+    }
+
+    /// <summary>
     /// Gets all recorded survey points (for future AI analysis)
     /// </summary>
     public IReadOnlyList<SurveyPoint> GetSurveyPoints() => _surveyPoints.AsReadOnly();
@@ -148,6 +203,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _surveyPoints.Clear();
         SurveyPointCount = 0;
+        HeatmapOverlay = null; // Clear heatmap when points are cleared
         StatusMessage = "Toate punctele au fost șterse.";
 
         // Send message to clear visual elements from Canvas

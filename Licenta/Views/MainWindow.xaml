@@ -5,207 +5,229 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:WifiSignalOptimizer.ViewModels"
         mc:Ignorable="d"
-        Title="Optimizator Semnal WiFi - Proiect Licență" 
+        Title="Optimizator Semnal WiFi - Proiect Licență"
         Height="800" Width="1400"
         MinHeight="600" MinWidth="1000"
         WindowStartupLocation="CenterScreen"
         KeyDown="Window_KeyDown">
 
-    <Window.Resources>
-        <!-- Modern button style -->
-        <Style x:Key="ModernButton" TargetType="Button">
-            <Setter Property="Background" Value="#0078D4"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Padding" Value="15,8"/>
-            <Setter Property="Margin" Value="0,5"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}"
+	<Window.Resources>
+		<!-- Modern button style -->
+		<Style x:Key="ModernButton" TargetType="Button">
+			<Setter Property="Background" Value="#0078D4"/>
+			<Setter Property="Foreground" Value="White"/>
+			<Setter Property="Padding" Value="15,8"/>
+			<Setter Property="Margin" Value="0,5"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="Cursor" Value="Hand"/>
+			<Setter Property="FontSize" Value="14"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+			<Setter Property="Template">
+				<Setter.Value>
+					<ControlTemplate TargetType="Button">
+						<Border Background="{TemplateBinding Background}"
                                 CornerRadius="4"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" 
+							<ContentPresenter HorizontalAlignment="Center"
                                             VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#005A9E"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#CCCCCC"/>
-                    <Setter Property="Cursor" Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+						</Border>
+					</ControlTemplate>
+				</Setter.Value>
+			</Setter>
+			<Style.Triggers>
+				<Trigger Property="IsMouseOver" Value="True">
+					<Setter Property="Background" Value="#005A9E"/>
+				</Trigger>
+				<Trigger Property="IsEnabled" Value="False">
+					<Setter Property="Background" Value="#CCCCCC"/>
+					<Setter Property="Cursor" Value="Arrow"/>
+				</Trigger>
+			</Style.Triggers>
+		</Style>
 
-        <!-- DataGrid styling -->
-        <Style TargetType="DataGrid">
-            <Setter Property="AutoGenerateColumns" Value="False"/>
-            <Setter Property="IsReadOnly" Value="True"/>
-            <Setter Property="SelectionMode" Value="Single"/>
-            <Setter Property="CanUserAddRows" Value="False"/>
-            <Setter Property="CanUserDeleteRows" Value="False"/>
-            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-            <Setter Property="HeadersVisibility" Value="Column"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="RowBackground" Value="White"/>
-            <Setter Property="AlternatingRowBackground" Value="#F5F5F5"/>
-        </Style>
-    </Window.Resources>
+		<!-- DataGrid styling -->
+		<Style TargetType="DataGrid">
+			<Setter Property="AutoGenerateColumns" Value="False"/>
+			<Setter Property="IsReadOnly" Value="True"/>
+			<Setter Property="SelectionMode" Value="Single"/>
+			<Setter Property="CanUserAddRows" Value="False"/>
+			<Setter Property="CanUserDeleteRows" Value="False"/>
+			<Setter Property="GridLinesVisibility" Value="Horizontal"/>
+			<Setter Property="HeadersVisibility" Value="Column"/>
+			<Setter Property="Background" Value="White"/>
+			<Setter Property="RowBackground" Value="White"/>
+			<Setter Property="AlternatingRowBackground" Value="#F5F5F5"/>
+		</Style>
+	</Window.Resources>
 
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="350"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+	<Grid>
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="350"/>
+			<ColumnDefinition Width="*"/>
+		</Grid.ColumnDefinitions>
 
-        <!-- Left Control Panel -->
-        <Border Grid.Column="0" 
-                Background="#F8F8F8" 
-                BorderBrush="#E0E0E0" 
+		<!-- Left Control Panel -->
+		<Border Grid.Column="0"
+                Background="#F8F8F8"
+                BorderBrush="#E0E0E0"
                 BorderThickness="0,0,1,0"
                 Padding="15">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+			<Grid>
+				<Grid.RowDefinitions>
+					<RowDefinition Height="Auto"/>
+					<RowDefinition Height="Auto"/>
+					<RowDefinition Height="*"/>
+					<RowDefinition Height="Auto"/>
+				</Grid.RowDefinitions>
 
-                <!-- Control Buttons -->
-                <StackPanel Grid.Row="0">
-                    <TextBlock Text="Panou de Control" 
-                               FontSize="18" 
-                               FontWeight="Bold" 
+				<!-- Control Buttons -->
+				<StackPanel Grid.Row="0">
+					<TextBlock Text="Panou de Control"
+                               FontSize="18"
+                               FontWeight="Bold"
                                Margin="0,0,0,15"/>
 
-                    <Button Content="📂 Încarcă Planul" 
+					<Button Content="📂 Încarcă Planul"
                             Style="{StaticResource ModernButton}"
                             Command="{Binding LoadMapCommand}"/>
 
-                    <Button Content="📡 Scanează Rețele" 
+					<Button Content="📡 Scanează Rețele"
                             Style="{StaticResource ModernButton}"
                             Command="{Binding ScanCommand}"
                             IsEnabled="{Binding IsScanning, Converter={StaticResource InvertBoolConverter}}"/>
 
-                    <Button Content="🗑️ Șterge Punctele" 
+					<Button Content="🔥 Generează Heatmap"
+                            Style="{StaticResource ModernButton}"
+                            Background="#FF6B35"
+                            Command="{Binding GenerateHeatmapCommand}"
+                            Margin="0,10,0,5"/>
+
+					<Button Content="🗑️ Șterge Punctele"
                             Style="{StaticResource ModernButton}"
                             Background="#D13438"
                             Command="{Binding ClearSurveyPointsCommand}"
                             Margin="0,15,0,5"/>
 
-                    <TextBlock Text="{Binding SurveyPointCount, StringFormat='Puncte Înregistrate: {0}'}" 
-                               FontSize="12" 
-                               Foreground="#666" 
+					<TextBlock Text="{Binding SurveyPointCount, StringFormat='Puncte Înregistrate: {0}'}"
+                               FontSize="12"
+                               Foreground="#666"
                                Margin="5,5,0,0"/>
-                </StackPanel>
+				</StackPanel>
 
-                <!-- Network List -->
-                <TextBlock Grid.Row="1" 
-                           Text="Rețele Detectate" 
-                           FontSize="14" 
-                           FontWeight="SemiBold" 
+				<!-- Network List -->
+				<TextBlock Grid.Row="1"
+                           Text="Rețele Detectate"
+                           FontSize="14"
+                           FontWeight="SemiBold"
                            Margin="0,20,0,10"/>
 
-                <DataGrid Grid.Row="2" 
-ItemsSource="{Binding VisibleNetworks}"
-IsReadOnly="True" 
-SelectionMode="Single"
-AutoGenerateColumns="False"
-Margin="0,0,0,10">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Nume Rețea" 
-                  Binding="{Binding SSID, Mode=OneWay}" 
-                  Width="*"/>
-                        <DataGridTextColumn Header="Semnal" 
-                  Binding="{Binding SignalStrength, Mode=OneWay, StringFormat='{}{0} dBm'}" 
-                  Width="70"/>
-                        <DataGridTextColumn Header="Canal" 
-                  Binding="{Binding Channel, Mode=OneWay}" 
-                  Width="40"/>
-                        <DataGridTemplateColumn Header="Calitate" Width="60">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <ProgressBar Value="{Binding SignalQuality, Mode=OneWay}" 
-                     Height="16" 
-                     Minimum="0" 
-                     Maximum="100"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
+				<DataGrid Grid.Row="2"
+                          ItemsSource="{Binding VisibleNetworks}"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          AutoGenerateColumns="False"
+                          Margin="0,0,0,10">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Nume Rețea"
+                                          Binding="{Binding SSID, Mode=OneWay}"
+                                          Width="*"/>
+						<DataGridTextColumn Header="Semnal"
+                                          Binding="{Binding SignalStrength, Mode=OneWay, StringFormat='{}{0} dBm'}"
+                                          Width="70"/>
+						<DataGridTextColumn Header="Canal"
+                                          Binding="{Binding Channel, Mode=OneWay}"
+                                          Width="40"/>
+						<DataGridTemplateColumn Header="Calitate" Width="60">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<ProgressBar Value="{Binding SignalQuality, Mode=OneWay}"
+                                               Height="16"
+                                               Minimum="0"
+                                               Maximum="100"/>
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+					</DataGrid.Columns>
+				</DataGrid>
 
 
-                <!-- Status Bar -->
-                <Border Grid.Row="3" 
-                        Background="White" 
-                        BorderBrush="#E0E0E0" 
-                        BorderThickness="1" 
-                        CornerRadius="4" 
+				<!-- Status Bar -->
+				<Border Grid.Row="3"
+                        Background="White"
+                        BorderBrush="#E0E0E0"
+                        BorderThickness="1"
+                        CornerRadius="4"
                         Padding="10,8">
-                    <TextBlock Text="{Binding StatusMessage}" 
-                               TextWrapping="Wrap" 
-                               FontSize="11" 
+					<TextBlock Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap"
+                               FontSize="11"
                                Foreground="#333"/>
-                </Border>
-            </Grid>
-        </Border>
+				</Border>
+			</Grid>
+		</Border>
 
-        <!-- Right Map Area -->
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
+		<!-- Right Map Area -->
+		<Grid Grid.Column="1">
+			<Grid.RowDefinitions>
+				<RowDefinition Height="Auto"/>
+				<RowDefinition Height="*"/>
+			</Grid.RowDefinitions>
 
-            <!-- Map Header -->
-            <Border Grid.Row="0" 
-                    Background="White" 
-                    BorderBrush="#E0E0E0" 
-                    BorderThickness="0,0,0,1" 
+			<!-- Map Header -->
+			<Border Grid.Row="0"
+                    Background="White"
+                    BorderBrush="#E0E0E0"
+                    BorderThickness="0,0,0,1"
                     Padding="15,10">
-                <TextBlock Text="Hartă Plan de Încadrare" 
-                           FontSize="16" 
+				<TextBlock Text="Hartă Plan de Încadrare"
+                           FontSize="16"
                            FontWeight="SemiBold"/>
-            </Border>
+			</Border>
 
-            <!-- Map Canvas Area -->
-            <ScrollViewer Grid.Row="1" 
+			<!-- Map Canvas Area -->
+			<ScrollViewer Grid.Row="1"
                          HorizontalScrollBarVisibility="Auto"
                          VerticalScrollBarVisibility="Auto"
                          Background="#FFFFFF">
-                <Canvas x:Name="MapCanvas" 
-                        MouseLeftButtonDown="MapCanvas_MouseLeftButtonDown"
+				<Canvas x:Name="MapCanvas"
                         MouseWheel="MapCanvas_MouseWheel"
                         Background="Transparent">
-                    <!-- Floor Plan Image -->
-                    <Image x:Name="FloorPlanImage"
-                           Source="{Binding FloorPlan}"
-                           Stretch="None"
-                           Canvas.Left="0"
-                           Canvas.Top="0"
-                           MouseLeftButtonDown="FloorPlanImage_MouseLeftButtonDown"
-                           MouseMove="FloorPlanImage_MouseMove"
-                           MouseLeftButtonUp="FloorPlanImage_MouseLeftButtonUp"
-                           Cursor="Hand"/>
 
-                    <!-- Survey points will be added dynamically -->
-                    <Canvas x:Name="SurveyPointsCanvas" 
-                            IsHitTestVisible="False"/>
-                </Canvas>
-            </ScrollViewer>
+					<!-- Container care primește TOATE transformările -->
+					<Grid x:Name="MapContent"
+                          MouseLeftButtonDown="MapContent_MouseLeftButtonDown"
+                          MouseRightButtonDown="MapContent_MouseRightButtonDown"
+                          MouseMove="MapContent_MouseMove"
+                          MouseLeftButtonUp="MapContent_MouseLeftButtonUp"
+                          Background="Transparent"
+                          Cursor="Hand">
 
-            <!-- Instructions overlay -->
-            <Border Grid.Row="1"
+						<!-- Floor Plan Image -->
+						<Image x:Name="FloorPlanImage"
+                               Source="{Binding FloorPlan}"
+                               Stretch="None"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Top"/>
+
+						<!-- Heatmap Overlay -->
+						<Image Source="{Binding HeatmapOverlay}"
+                               Width="{Binding ElementName=FloorPlanImage, Path=ActualWidth}"
+                               Height="{Binding ElementName=FloorPlanImage, Path=ActualHeight}"
+                               Stretch="Fill"
+                               IsHitTestVisible="False"
+                               Opacity="0.7"/>
+
+						<!-- Canvas pentru puncte - se transformă odată cu imaginea -->
+						<Canvas x:Name="SurveyPointsCanvas"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Background="Transparent"/>
+					</Grid>
+				</Canvas>
+			</ScrollViewer>
+
+			<!-- Instructions overlay -->
+			<Border Grid.Row="1"
                     Background="#F0F0F0"
                     BorderBrush="#0078D4"
                     BorderThickness="2"
@@ -215,25 +237,25 @@ Margin="0,0,0,10">
                     HorizontalAlignment="Right"
                     VerticalAlignment="Bottom"
                     Visibility="{Binding FloorPlan, Converter={StaticResource InvertNullToVisibilityConverter}}">
-                <StackPanel>
-                    <TextBlock Text="⌨️ Comenzi Rapide:" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
-                    <TextBlock Text="🖱️ Tragere: Mută imaginea" FontSize="11" Margin="0,2"/>
-                    <TextBlock Text="🖱️ Rotița: Zoom In/Out" FontSize="11" Margin="0,2"/>
-                    <TextBlock Text="⌨️ R: Rotește 15° (dreapta)" FontSize="11" Margin="0,2"/>
-                    <TextBlock Text="⌨️ Shift+R: Rotește 15° (stânga)" FontSize="11" Margin="0,2"/>
-                    <TextBlock Text="⌨️ ESC: Resetează poziția" FontSize="11" Margin="0,2"/>
-                    <TextBlock Text="🖱️ Click: Plasează punct măsurare" FontSize="11" Margin="0,2" FontWeight="SemiBold"/>
-                </StackPanel>
-            </Border>
+				<StackPanel>
+					<TextBlock Text="⌨️ Comenzi Rapide:" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+					<TextBlock Text="🖱️ Click Stânga + Drag: Mută harta" FontSize="11" Margin="0,2"/>
+					<TextBlock Text="🖱️ Rotița: Zoom In/Out" FontSize="11" Margin="0,2"/>
+					<TextBlock Text="⌨️ R: Rotește 15° (dreapta)" FontSize="11" Margin="0,2"/>
+					<TextBlock Text="⌨️ Shift+R: Rotește 15° (stânga)" FontSize="11" Margin="0,2"/>
+					<TextBlock Text="⌨️ ESC: Resetează poziția" FontSize="11" Margin="0,2"/>
+					<TextBlock Text="🖱️ Click Dreapta: Plasează punct măsurare" FontSize="11" Margin="0,2" FontWeight="SemiBold" Foreground="#0078D4"/>
+				</StackPanel>
+			</Border>
 
-            <!-- Placeholder when no map is loaded -->
-            <TextBlock Grid.Row="1"
+			<!-- Placeholder when no map is loaded -->
+			<TextBlock Grid.Row="1"
                        Text="Încărcați un plan pentru a începe scanarea"
                        FontSize="18"
                        Foreground="#999"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
                        Visibility="{Binding FloorPlan, Converter={StaticResource NullToVisibilityConverter}}"/>
-        </Grid>
-    </Grid>
+		</Grid>
+	</Grid>
 </Window>
