@@ -1,9 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using WifiSignalOptimizer.Models;
 using WifiSignalOptimizer.Services;
 using WifiSignalOptimizer.ViewModels;
 
@@ -26,11 +29,22 @@ public partial class MainWindow : Window
     private RotateTransform _rotateTransform;
     private TranslateTransform _translateTransform;
 
+    // ✅ Drawing mode variables
+    private Point _startPoint;
+    private bool _isDrawingLine = false;
+    private bool _isLineToolActive = false;
+    private const int GRID_SIZE = 20; // Grid snapping size
+
+    // ✅ Drag & Drop for stamps
+    private Image? _draggedImage;
+    private Point _dragOffset;
+    private bool _isDraggingElement = false;
+
     public MainWindow()
     {
         InitializeComponent();
 
-        // Dependency injection setup (in production, use DI container)
+        // Dependency injection setup
         var wifiScanner = new WifiScannerService();
         var mapService = new MapService();
         _viewModel = new MainViewModel(wifiScanner, mapService);
@@ -43,10 +57,16 @@ public partial class MainWindow : Window
             ClearVisualSurveyPoints();
         });
 
+        // Register for redraw survey points message
+        WeakReferenceMessenger.Default.Register<RedrawSurveyPointsMessage>(this, (r, m) =>
+        {
+            RedrawSurveyPoints(m.SurveyPoints);
+        });
+
         // Setup image transformations
         InitializeImageTransforms();
 
-        // Subscribe to floor plan changes to reset transformations
+        // Subscribe to floor plan changes
         _viewModel.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(_viewModel.FloorPlan) && _viewModel.FloorPlan != null)
@@ -56,9 +76,8 @@ public partial class MainWindow : Window
         };
     }
 
-    /// <summary>
-    /// Initialize transform groups for image manipulation
-    /// </summary>
+    #region Image Transformations
+
     private void InitializeImageTransforms()
     {
         _scaleTransform = new ScaleTransform(1.0, 1.0);
@@ -70,14 +89,10 @@ public partial class MainWindow : Window
         _imageTransformGroup.Children.Add(_rotateTransform);
         _imageTransformGroup.Children.Add(_translateTransform);
 
-        // ✅ SCHIMBARE: Aplicăm transformările pe MapContent în loc de FloorPlanImage
         MapContent.RenderTransform = _imageTransformGroup;
         MapContent.RenderTransformOrigin = new Point(0.5, 0.5);
     }
 
-    /// <summary>
-    /// Reset all image transformations when new image is loaded
-    /// </summary>
     private void ResetImageTransformations()
     {
         _currentZoom = 1.0;
@@ -88,21 +103,15 @@ public partial class MainWindow : Window
         _translateTransform.X = 0;
         _translateTransform.Y = 0;
 
-        // Resize canvas to image dimensions
         if (_viewModel.FloorPlan != null)
         {
             MapCanvas.Width = _viewModel.FloorPlan.PixelWidth;
             MapCanvas.Height = _viewModel.FloorPlan.PixelHeight;
-
-            // ✅ ADĂUGAT: Setează dimensiunea containerului
             MapContent.Width = _viewModel.FloorPlan.PixelWidth;
             MapContent.Height = _viewModel.FloorPlan.PixelHeight;
         }
     }
 
-    /// <summary>
-    /// Handle mouse wheel for zooming
-    /// </summary>
     private void MapCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (_viewModel.FloorPlan == null) return;
@@ -111,7 +120,7 @@ public partial class MainWindow : Window
         double zoomChange = e.Delta > 0 ? zoomSpeed : -zoomSpeed;
 
         _currentZoom += zoomChange;
-        _currentZoom = Math.Clamp(_currentZoom, 0.1, 5.0); // Min 10%, Max 500%
+        _currentZoom = Math.Clamp(_currentZoom, 0.1, 5.0);
 
         _scaleTransform.ScaleX = _currentZoom;
         _scaleTransform.ScaleY = _currentZoom;
@@ -119,9 +128,10 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>
-    /// Start dragging the map
-    /// </summary>
+    #endregion
+
+    #region Map Interaction
+
     private void MapContent_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_viewModel.FloorPlan == null) return;
@@ -132,9 +142,6 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>
-    /// Move the map while dragging
-    /// </summary>
     private void MapContent_MouseMove(object sender, MouseEventArgs e)
     {
         if (!_isDragging || _viewModel.FloorPlan == null) return;
@@ -150,9 +157,6 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>
-    /// Stop dragging the map
-    /// </summary>
     private void MapContent_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (_isDragging)
@@ -163,34 +167,23 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Handles RIGHT mouse click to place survey points
-    /// </summary>
     private void MapContent_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (_viewModel.FloorPlan == null)
             return;
 
-        // ✅ CRITICO: Coordonatele relative la MapContent (sistemul transformat)
         var clickPosition = e.GetPosition(MapContent);
 
-        // Get strongest signal from current scan
         int strongestSignal = _viewModel.VisibleNetworks.Count > 0
             ? _viewModel.VisibleNetworks.Max(n => n.SignalStrength)
-            : -90; // Default weak signal if no networks
+            : -90;
 
-        // Draw survey point with color based on signal strength
         DrawSurveyPoint(clickPosition, strongestSignal);
-
-        // Record the survey point with current WiFi data
         _viewModel.RecordPointCommand.Execute(clickPosition);
 
         e.Handled = true;
     }
 
-    /// <summary>
-    /// Rotate image with keyboard (R key clockwise, Shift+R counter-clockwise)
-    /// </summary>
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (_viewModel.FloorPlan == null) return;
@@ -204,99 +197,301 @@ public partial class MainWindow : Window
         }
         else if (e.Key == Key.Escape)
         {
-            // Reset all transformations with ESC key
             ResetImageTransformations();
             e.Handled = true;
         }
     }
 
-    /// <summary>
-    /// Draws a survey point on the map with color based on signal strength
-    /// </summary>
-    /// <param name="position">Position on canvas</param>
-    /// <param name="signalStrength">Signal strength in dBm</param>
-    private void DrawSurveyPoint(Point position, int signalStrength)
+    #endregion
+
+    #region Drawing Mode
+
+    private void StartSketch_Click(object sender, RoutedEventArgs e)
     {
-        const double dotSize = 14;
-        const double outlineSize = 18;
+        DrawingOverlay.Visibility = Visibility.Visible;
+        EditorCanvas.Strokes.Clear();
+        ObjectsCanvas.Children.Clear();
+        SetPenAttributes(Colors.Black, 6);
+        _isLineToolActive = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
+        _viewModel.StatusMessage = "Mod Desenare activat. Desenați planul apartamentului.";
+    }
 
-        // Determine color based on signal strength
-        Brush signalColor = GetSignalColor(signalStrength);
+    private void Tool_Wall_Click(object sender, RoutedEventArgs e)
+    {
+        _isLineToolActive = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
+        SetPenAttributes(Colors.Black, 6);
+    }
 
-        // Outer white outline for visibility
-        var outline = new Ellipse
+    private void Tool_Detail_Click(object sender, RoutedEventArgs e)
+    {
+        _isLineToolActive = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
+        SetPenAttributes(Colors.Gray, 2);
+    }
+
+    private void Tool_Eraser_Click(object sender, RoutedEventArgs e)
+    {
+        _isLineToolActive = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.EraseByStroke;
+    }
+
+    private void Tool_Line_Click(object sender, RoutedEventArgs e)
+    {
+        _isLineToolActive = true;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.None;
+        EditorCanvas.IsHitTestVisible = true;
+    }
+
+    private void SetPenAttributes(Color color, double thickness)
+    {
+        var attributes = new DrawingAttributes
         {
-            Width = outlineSize,
-            Height = outlineSize,
-            Fill = Brushes.White,
-            Stroke = Brushes.DarkGray,
-            StrokeThickness = 1.5
+            Color = color,
+            Width = thickness,
+            Height = thickness,
+            FitToCurve = false,
+            IgnorePressure = true
         };
-
-        // Inner colored dot based on signal
-        var dot = new Ellipse
-        {
-            Width = dotSize,
-            Height = dotSize,
-            Fill = signalColor,
-            Stroke = GetSignalStrokeColor(signalStrength),
-            StrokeThickness = 2
-        };
-
-        // ✅ SCHIMBARE: Desenăm pe SurveyPointsCanvas care e în MapContent
-        Canvas.SetLeft(outline, position.X - outlineSize / 2);
-        Canvas.SetTop(outline, position.Y - outlineSize / 2);
-        Canvas.SetLeft(dot, position.X - dotSize / 2);
-        Canvas.SetTop(dot, position.Y - dotSize / 2);
-
-        SurveyPointsCanvas.Children.Add(outline);
-        SurveyPointsCanvas.Children.Add(dot);
-
-        // Add tooltip showing signal info
-        string signalQuality = signalStrength > -50 ? "Excelent" :
-                              signalStrength > -70 ? "Mediu" : "Slab";
-        dot.ToolTip = $"Punct de Măsurare\n" +
-                     $"Coordonate: ({position.X:F0}, {position.Y:F0})\n" +
-                     $"Semnal: {signalStrength} dBm ({signalQuality})";
+        EditorCanvas.DefaultDrawingAttributes = attributes;
     }
 
     /// <summary>
-    /// Get color based on signal strength
+    /// ✅ CRITICAL: Mouse down logic for both free drawing and rubber band line
     /// </summary>
-    private Brush GetSignalColor(int signalStrength)
+    private void EditorCanvas_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        return signalStrength switch
+        // ✅ Dacă NU suntem pe modul Linie Dreaptă (suntem pe Perete/Creion/Radieră)
+        if (!_isLineToolActive)
         {
-            > -50 => new SolidColorBrush(Color.FromRgb(76, 175, 80)),   // Green - Excellent
-            > -70 => new SolidColorBrush(Color.FromRgb(255, 193, 7)),   // Yellow - Medium
-            _ => new SolidColorBrush(Color.FromRgb(244, 67, 54))        // Red - Poor
-        };
+            // ✅ IMPORTANT: Nu setăm e.Handled = true aici!
+            // Lăsăm evenimentul să "curgă" către InkCanvas pentru desenare liberă
+            return;
+        }
+
+        // ✅ Doar dacă suntem în modul Linie Dreaptă, procesăm evenimentul manual
+        _isDrawingLine = true;
+        Point rawPoint = e.GetPosition(EditorCanvas);
+        _startPoint = SnapToGrid(rawPoint);
+
+        PreviewLine.X1 = _startPoint.X;
+        PreviewLine.Y1 = _startPoint.Y;
+        PreviewLine.X2 = _startPoint.X;
+        PreviewLine.Y2 = _startPoint.Y;
+        PreviewLine.Visibility = Visibility.Visible;
+
+        EditorCanvas.CaptureMouse();
+        e.Handled = true; // ✅ Doar aici marcăm evenimentul ca procesat
     }
 
-    /// <summary>
-    /// Get stroke color based on signal strength
-    /// </summary>
-    private Brush GetSignalStrokeColor(int signalStrength)
+    private void EditorCanvas_MouseMove(object sender, MouseEventArgs e)
     {
-        return signalStrength switch
-        {
-            > -50 => new SolidColorBrush(Color.FromRgb(56, 142, 60)),   // Dark Green
-            > -70 => new SolidColorBrush(Color.FromRgb(245, 124, 0)),   // Dark Yellow/Orange
-            _ => new SolidColorBrush(Color.FromRgb(198, 40, 40))        // Dark Red
-        };
+        // Doar funcționează pentru Rubber Band Line
+        if (!_isDrawingLine) return;
+
+        Point currentRaw = e.GetPosition(EditorCanvas);
+        Point snapped = SnapToGrid(currentRaw);
+
+        PreviewLine.X2 = snapped.X;
+        PreviewLine.Y2 = snapped.Y;
     }
 
-    /// <summary>
-    /// Clears all visual survey points from canvas
-    /// </summary>
-    private void ClearVisualSurveyPoints()
+    private void EditorCanvas_MouseUp(object sender, MouseButtonEventArgs e)
     {
-        SurveyPointsCanvas.Children.Clear();
+        // Doar funcționează pentru Rubber Band Line
+        if (!_isDrawingLine) return;
+
+        _isDrawingLine = false;
+        PreviewLine.Visibility = Visibility.Collapsed;
+        EditorCanvas.ReleaseMouseCapture();
+
+        Point endPoint = new Point(PreviewLine.X2, PreviewLine.Y2);
+
+        // Nu desenăm dacă a fost doar un click fără drag
+        if (_startPoint == endPoint) return;
+
+        // Convert visual line to ink stroke
+        var stylusPointCollection = new StylusPointCollection();
+        stylusPointCollection.Add(new StylusPoint(_startPoint.X, _startPoint.Y));
+        stylusPointCollection.Add(new StylusPoint(endPoint.X, endPoint.Y));
+
+        var stroke = new Stroke(stylusPointCollection)
+        {
+            DrawingAttributes = EditorCanvas.DefaultDrawingAttributes.Clone()
+        };
+
+        EditorCanvas.Strokes.Add(stroke);
     }
+
+    private Point SnapToGrid(Point original)
+    {
+        double snappedX = Math.Round(original.X / GRID_SIZE) * GRID_SIZE;
+        double snappedY = Math.Round(original.Y / GRID_SIZE) * GRID_SIZE;
+        return new Point(snappedX, snappedY);
+    }
+
+    private void SaveSketch_Click(object sender, RoutedEventArgs e)
+    {
+        int width = (int)EditorCanvas.ActualWidth;
+        int height = (int)EditorCanvas.ActualHeight;
+
+        if (width == 0 || height == 0)
+        {
+            width = 800;
+            height = 600;
+        }
+
+        RenderTargetBitmap rtb = new RenderTargetBitmap(
+            width, height, 96d, 96d, PixelFormats.Pbgra32);
+
+        // White background
+        DrawingVisual backgroundVisual = new DrawingVisual();
+        using (DrawingContext ctx = backgroundVisual.RenderOpen())
+        {
+            ctx.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
+        }
+
+        rtb.Render(backgroundVisual);
+        rtb.Render(EditorCanvas);
+        rtb.Render(ObjectsCanvas); // Include stamps
+
+        // Convert to BitmapImage
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rtb));
+
+        using (var stream = new System.IO.MemoryStream())
+        {
+            encoder.Save(stream);
+            stream.Position = 0;
+
+            var bitmapImage = new BitmapImage();
+            bitmapImage.BeginInit();
+            bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+            bitmapImage.StreamSource = stream;
+            bitmapImage.EndInit();
+            bitmapImage.Freeze();
+
+            _viewModel.FloorPlan = bitmapImage;
+        }
+
+        _viewModel.ClearSurveyPointsCommand.Execute(null);
+        DrawingOverlay.Visibility = Visibility.Collapsed;
+
+        _viewModel.StatusMessage = "Schița a fost salvată și setată ca plan!";
+        MessageBox.Show("Schița a fost salvată și setată ca plan!", "Succes",
+            MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    private void CancelSketch_Click(object sender, RoutedEventArgs e)
+    {
+        DrawingOverlay.Visibility = Visibility.Collapsed;
+        _viewModel.StatusMessage = "Desenare anulată.";
+    }
+
+    #endregion
+
+    #region Stamp Objects (Router, Fridge, etc.)
+
+    private void AddRouter_Click(object sender, RoutedEventArgs e)
+    {
+        AddElementToCanvas("pack://application:,,,/Images/router_icon.png", ElementType.Router);
+    }
+
+    private void AddFridge_Click(object sender, RoutedEventArgs e)
+    {
+        AddElementToCanvas("pack://application:,,,/Images/fridge_icon.png", ElementType.Fridge);
+    }
+
+    private void AddMicrowave_Click(object sender, RoutedEventArgs e)
+    {
+        AddElementToCanvas("pack://application:,,,/Images/microwave_icon.png", ElementType.Microwave);
+    }
+
+    private void AddConcreteWall_Click(object sender, RoutedEventArgs e)
+    {
+        AddElementToCanvas("pack://application:,,,/Images/wall_icon.png", ElementType.ConcreteWall);
+    }
+
+    private void AddElementToCanvas(string iconPath, ElementType type)
+    {
+        try
+        {
+            Image icon = new Image
+            {
+                Source = new BitmapImage(new Uri(iconPath)),
+                Width = 40,
+                Height = 40,
+                Cursor = Cursors.Hand,
+                Tag = type
+            };
+
+            Canvas.SetLeft(icon, 200);
+            Canvas.SetTop(icon, 200);
+
+            // ✅ Attach mouse events DOAR la imagine, nu la InkCanvas
+            icon.MouseLeftButtonDown += Element_MouseDown;
+            icon.MouseLeftButtonUp += Element_MouseUp;
+            icon.MouseMove += Element_MouseMove;
+
+            ObjectsCanvas.Children.Add(icon);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Nu s-a putut încărca iconița: {ex.Message}", "Eroare",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    // ✅ Drag & Drop Logic - DOAR pentru stampile
+    private void Element_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _draggedImage = sender as Image;
+        _isDraggingElement = true;
+        _dragOffset = e.GetPosition(_draggedImage);
+        _draggedImage?.CaptureMouse();
+        e.Handled = true; // ✅ Oprește propagarea la InkCanvas
+    }
+
+    private void Element_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_isDraggingElement && _draggedImage != null)
+        {
+            Point currentPos = e.GetPosition(ObjectsCanvas);
+            Canvas.SetLeft(_draggedImage, currentPos.X - _dragOffset.X);
+            Canvas.SetTop(_draggedImage, currentPos.Y - _dragOffset.Y);
+            e.Handled = true; // ✅ Oprește propagarea
+        }
+    }
+
+    private void Element_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isDraggingElement && _draggedImage != null)
+        {
+            _isDraggingElement = false;
+            _draggedImage.ReleaseMouseCapture();
+
+            double finalX = Canvas.GetLeft(_draggedImage);
+            double finalY = Canvas.GetTop(_draggedImage);
+            ElementType type = (ElementType)_draggedImage.Tag;
+
+            _viewModel.RegisterMapElementCommand.Execute(new MapElement
+            {
+                Type = type,
+                X = finalX,
+                Y = finalY
+            });
+
+            e.Handled = true; // ✅ Oprește propagarea
+        }
+    }
+
+    #endregion
 
     protected override void OnClosed(EventArgs e)
     {
         WeakReferenceMessenger.Default.Unregister<ClearSurveyPointsMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<RedrawSurveyPointsMessage>(this);
         base.OnClosed(e);
     }
 }

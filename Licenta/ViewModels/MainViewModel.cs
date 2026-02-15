@@ -1,7 +1,9 @@
 ﻿using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -18,7 +20,10 @@ public sealed partial class MainViewModel : ObservableObject
 {
     private readonly IWifiScannerService _wifiScanner;
     private readonly IMapService _mapService;
+    private readonly ProjectService _projectService;
+    private readonly DispatcherTimer _autoScanTimer;
     private readonly List<SurveyPoint> _surveyPoints = [];
+    private readonly List<MapElement> _mapElements = [];
 
     [ObservableProperty]
     private ObservableCollection<WifiNetwork> _visibleNetworks = [];
@@ -33,20 +38,27 @@ public sealed partial class MainViewModel : ObservableObject
     private bool _isScanning;
 
     [ObservableProperty]
+    private bool _isAutoScanning;
+
+    [ObservableProperty]
     private string _statusMessage = "Gata. Încărcați un plan pentru a începe.";
 
     [ObservableProperty]
     private int _surveyPointCount;
 
+    public string AutoScanButtonText => IsAutoScanning ? "⏸️ Stop Auto-Scan" : "▶️ Start Auto-Scan";
+
     public MainViewModel(IWifiScannerService wifiScanner, IMapService mapService)
     {
         _wifiScanner = wifiScanner;
         _mapService = mapService;
+        _projectService = new ProjectService();
+
+        _autoScanTimer = new DispatcherTimer();
+        _autoScanTimer.Interval = TimeSpan.FromSeconds(3);
+        _autoScanTimer.Tick += AutoScanTimer_Tick;
     }
 
-    /// <summary>
-    /// Opens file dialog and loads a floor plan image
-    /// </summary>
     [RelayCommand]
     private async Task LoadMapAsync()
     {
@@ -67,8 +79,6 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 FloorPlan = bitmap;
                 StatusMessage = $"Plan încărcat: {Path.GetFileName(dialog.FileName)}";
-
-                // Clear heatmap when new map is loaded
                 HeatmapOverlay = null;
             }
             else
@@ -78,9 +88,6 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Performs a WiFi scan and updates the visible networks
-    /// </summary>
     [RelayCommand(IncludeCancelCommand = true)]
     private async Task ScanAsync(CancellationToken cancellationToken)
     {
@@ -112,9 +119,34 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Records a survey point at the specified map coordinates
-    /// </summary>
+    [RelayCommand]
+    private void ToggleAutoScan()
+    {
+        if (IsAutoScanning)
+        {
+            _autoScanTimer.Stop();
+            IsAutoScanning = false;
+            StatusMessage = "Auto-Scan oprit.";
+        }
+        else
+        {
+            _autoScanTimer.Start();
+            IsAutoScanning = true;
+            StatusMessage = "Auto-Scan pornit. Scanare la fiecare 3 secunde.";
+            _ = ScanAsync(CancellationToken.None);
+        }
+
+        OnPropertyChanged(nameof(AutoScanButtonText));
+    }
+
+    private void AutoScanTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!IsScanning)
+        {
+            _ = ScanAsync(CancellationToken.None);
+        }
+    }
+
     [RelayCommand]
     private void RecordPoint(object parameter)
     {
@@ -143,8 +175,34 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Generates a heatmap overlay based on recorded survey points
+    /// Registers a map element (router, fridge, etc.) for AI analysis
     /// </summary>
+    [RelayCommand]
+    private void RegisterMapElement(object parameter)
+    {
+        if (parameter is not MapElement element)
+            return;
+
+        _mapElements.Add(element);
+
+        string elementName = element.Type switch
+        {
+            ElementType.Router => "Router",
+            ElementType.Fridge => "Frigider",
+            ElementType.Microwave => "Microunde",
+            ElementType.ConcreteWall => "Zid Beton",
+            _ => "Obiect"
+        };
+
+        StatusMessage = $"{elementName} adăugat la ({element.X:F0}, {element.Y:F0}) " +
+                       $"- Penalizare semnal: {element.SignalPenalty} dBm";
+    }
+
+    /// <summary>
+    /// Gets all registered map elements (for AI prediction)
+    /// </summary>
+    public IReadOnlyList<MapElement> GetMapElements() => _mapElements.AsReadOnly();
+
     [RelayCommand]
     private async Task GenerateHeatmapAsync()
     {
@@ -164,18 +222,16 @@ public sealed partial class MainViewModel : ObservableObject
         {
             StatusMessage = "Se generează heatmap-ul...";
 
-            // Get dimensions from floor plan
             int width = FloorPlan.PixelWidth;
             int height = FloorPlan.PixelHeight;
 
-            // Run on background thread to avoid UI freeze
+            // ✅ CORECTAT: Folosim semnătura corectă (3 parametri)
             var heatmap = await Task.Run(() =>
             {
                 var service = new HeatmapService();
                 return service.GenerateHeatmap(_surveyPoints, width, height);
             });
 
-            // Freeze the bitmap for cross-thread access
             if (heatmap != null && heatmap.CanFreeze)
             {
                 heatmap.Freeze();
@@ -190,30 +246,93 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Gets all recorded survey points (for future AI analysis)
-    /// </summary>
+    [RelayCommand]
+    private void SaveProject()
+    {
+        if (_surveyPoints.Count == 0)
+        {
+            MessageBox.Show("Nu ai nicio măsurătoare de salvat!", "Informație", 
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            // ✅ CORECTAT: Folosim semnătura corectă (1 parametru - doar points)
+            _projectService.SaveProject(_surveyPoints);
+            StatusMessage = $"Proiect salvat cu succes! ({_surveyPoints.Count} puncte)";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Eroare la salvarea proiectului: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task LoadProjectAsync()
+    {
+        try
+        {
+            // ✅ CORECTAT: Folosim semnătura corectă (returnează List<SurveyPoint>?)
+            var loadedPoints = _projectService.LoadProject();
+            
+            if (loadedPoints != null && loadedPoints.Count > 0)
+            {
+                _surveyPoints.Clear();
+                _mapElements.Clear(); // Clear map elements too
+                
+                foreach (var point in loadedPoints)
+                {
+                    _surveyPoints.Add(point);
+                }
+                
+                SurveyPointCount = _surveyPoints.Count;
+                StatusMessage = $"Proiect încărcat cu succes! ({_surveyPoints.Count} puncte)";
+
+                WeakReferenceMessenger.Default.Send(new ClearSurveyPointsMessage());
+                WeakReferenceMessenger.Default.Send(new RedrawSurveyPointsMessage(_surveyPoints));
+
+                if (FloorPlan != null && _surveyPoints.Count >= 2)
+                {
+                    await GenerateHeatmapAsync();
+                }
+            }
+            else
+            {
+                StatusMessage = "Nu s-au găsit date în proiectul încărcat.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Eroare la încărcarea proiectului: {ex.Message}";
+        }
+    }
+
     public IReadOnlyList<SurveyPoint> GetSurveyPoints() => _surveyPoints.AsReadOnly();
 
-    /// <summary>
-    /// Clears all survey points
-    /// </summary>
     [RelayCommand]
     private void ClearSurveyPoints()
     {
         _surveyPoints.Clear();
+        _mapElements.Clear();
         SurveyPointCount = 0;
-        HeatmapOverlay = null; // Clear heatmap when points are cleared
-        StatusMessage = "Toate punctele au fost șterse.";
+        HeatmapOverlay = null;
+        StatusMessage = "Toate punctele și obiectele au fost șterse.";
 
-        // Send message to clear visual elements from Canvas
         WeakReferenceMessenger.Default.Send(new ClearSurveyPointsMessage());
     }
 }
 
-/// <summary>
-/// Message to signal that survey points should be cleared from UI
-/// </summary>
 public sealed class ClearSurveyPointsMessage
 {
+}
+
+public sealed class RedrawSurveyPointsMessage
+{
+    public IReadOnlyList<SurveyPoint> SurveyPoints { get; }
+    
+    public RedrawSurveyPointsMessage(IReadOnlyList<SurveyPoint> surveyPoints)
+    {
+        SurveyPoints = surveyPoints;
+    }
 }

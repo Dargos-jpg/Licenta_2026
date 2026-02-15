@@ -58,6 +58,20 @@
 			<Setter Property="RowBackground" Value="White"/>
 			<Setter Property="AlternatingRowBackground" Value="#F5F5F5"/>
 		</Style>
+
+		<!-- Grid brush for drawing overlay -->
+		<DrawingBrush x:Key="GridBrush" Viewport="0,0,20,20" ViewportUnits="Absolute" TileMode="Tile">
+			<DrawingBrush.Drawing>
+				<GeometryDrawing>
+					<GeometryDrawing.Pen>
+						<Pen Brush="#E0E0E0" Thickness="1"/>
+					</GeometryDrawing.Pen>
+					<GeometryDrawing.Geometry>
+						<RectangleGeometry Rect="0,0,20,20"/>
+					</GeometryDrawing.Geometry>
+				</GeometryDrawing>
+			</DrawingBrush.Drawing>
+		</DrawingBrush>
 	</Window.Resources>
 
 	<Grid>
@@ -91,10 +105,54 @@
                             Style="{StaticResource ModernButton}"
                             Command="{Binding LoadMapCommand}"/>
 
+					<Button Content="✏️ Creează Schiță Nouă"
+                            Click="StartSketch_Click"
+                            Style="{StaticResource ModernButton}"
+                            Background="#9C27B0"
+                            Margin="0,5,0,15"/>
+
 					<Button Content="📡 Scanează Rețele"
                             Style="{StaticResource ModernButton}"
                             Command="{Binding ScanCommand}"
                             IsEnabled="{Binding IsScanning, Converter={StaticResource InvertBoolConverter}}"/>
+
+					<!-- Auto-Scan Toggle -->
+					<Button Command="{Binding ToggleAutoScanCommand}"
+                            Content="{Binding AutoScanButtonText}"
+                            Margin="0,5,0,5"
+                            Height="38"
+                            FontWeight="Bold"
+                            Cursor="Hand"
+                            Padding="10,8">
+						<Button.Style>
+							<Style TargetType="Button">
+								<Setter Property="Background" Value="#4CAF50"/>
+								<Setter Property="Foreground" Value="White"/>
+								<Setter Property="BorderThickness" Value="0"/>
+								<Setter Property="FontSize" Value="14"/>
+								<Setter Property="Template">
+									<Setter.Value>
+										<ControlTemplate TargetType="Button">
+											<Border Background="{TemplateBinding Background}"
+                                                    CornerRadius="4"
+                                                    Padding="{TemplateBinding Padding}">
+												<ContentPresenter HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"/>
+											</Border>
+										</ControlTemplate>
+									</Setter.Value>
+								</Setter>
+								<Style.Triggers>
+									<DataTrigger Binding="{Binding IsAutoScanning}" Value="True">
+										<Setter Property="Background" Value="#F44336"/>
+									</DataTrigger>
+									<Trigger Property="IsMouseOver" Value="True">
+										<Setter Property="Opacity" Value="0.9"/>
+									</Trigger>
+								</Style.Triggers>
+							</Style>
+						</Button.Style>
+					</Button>
 
 					<Button Content="🔥 Generează Heatmap"
                             Style="{StaticResource ModernButton}"
@@ -102,11 +160,34 @@
                             Command="{Binding GenerateHeatmapCommand}"
                             Margin="0,10,0,5"/>
 
+					<!-- Save & Load Project -->
+					<StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="0,10,0,10">
+						<Button Content="💾 Salvare"
+                                Command="{Binding SaveProjectCommand}"
+                                Width="150"
+                                Height="35"
+                                Margin="0,0,5,0"
+                                Background="#4CAF50"
+                                Foreground="White"
+                                FontWeight="SemiBold"
+                                Cursor="Hand"/>
+						<Button Content="📥 Încărcare"
+                                Command="{Binding LoadProjectCommand}"
+                                Width="150"
+                                Height="35"
+                                Background="#2196F3"
+                                Foreground="White"
+                                FontWeight="SemiBold"
+                                Cursor="Hand"/>
+					</StackPanel>
+
 					<Button Content="🗑️ Șterge Punctele"
                             Style="{StaticResource ModernButton}"
                             Background="#D13438"
                             Command="{Binding ClearSurveyPointsCommand}"
-                            Margin="0,15,0,5"/>
+                            Margin="0,5,0,5"/>
 
 					<TextBlock Text="{Binding SurveyPointCount, StringFormat='Puncte Înregistrate: {0}'}"
                                FontSize="12"
@@ -149,7 +230,6 @@
 						</DataGridTemplateColumn>
 					</DataGrid.Columns>
 				</DataGrid>
-
 
 				<!-- Status Bar -->
 				<Border Grid.Row="3"
@@ -217,7 +297,7 @@
                                IsHitTestVisible="False"
                                Opacity="0.7"/>
 
-						<!-- Canvas pentru puncte - se transformă odată cu imaginea -->
+						<!-- Canvas pentru puncte -->
 						<Canvas x:Name="SurveyPointsCanvas"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
@@ -226,6 +306,181 @@
 				</Canvas>
 			</ScrollViewer>
 
+			<!-- ✅ DRAWING OVERLAY - Modul de Desenare -->
+			<Grid x:Name="DrawingOverlay"
+				  Grid.Row="1"
+				  Visibility="Collapsed"
+				  Background="White"
+				  Margin="10">
+
+				<!-- Grid background -->
+				<Border Background="{StaticResource GridBrush}"
+						Opacity="0.5"
+						Panel.ZIndex="0"/>
+
+				<!-- InkCanvas for drawing - LOWEST LAYER -->
+				<InkCanvas x:Name="EditorCanvas"
+						   Background="Transparent"
+						   MouseLeftButtonDown="EditorCanvas_MouseDown"
+						   MouseMove="EditorCanvas_MouseMove"
+						   MouseLeftButtonUp="EditorCanvas_MouseUp"
+						   Panel.ZIndex="1">
+					<InkCanvas.DefaultDrawingAttributes>
+						<DrawingAttributes Color="Black" Height="6" Width="6" FitToCurve="False"/>
+					</InkCanvas.DefaultDrawingAttributes>
+				</InkCanvas>
+
+				<!-- ✅ Canvas for Stamps (Router, Fridge, etc.) - MIDDLE LAYER -->
+				<Canvas x:Name="ObjectsCanvas"
+				Background="{x:Null}"
+				IsHitTestVisible="True"
+				Panel.ZIndex="2"/>
+
+				<!-- ✅ Preview Line for Rubber Band - TOP LAYER -->
+				<Line x:Name="PreviewLine"
+					  Stroke="Red"
+					  StrokeThickness="2"
+					  Visibility="Collapsed"
+					  IsHitTestVisible="False"
+					  Panel.ZIndex="100"/>
+
+				<!-- Toolbar - ALWAYS ON TOP -->
+				<Border VerticalAlignment="Top"
+						HorizontalAlignment="Center"
+						Margin="0,10,0,0"
+						Background="White"
+						CornerRadius="10"
+						Padding="15,10"
+						BorderBrush="#CCCCCC"
+						BorderThickness="1"
+						Panel.ZIndex="200">
+					<Border.Effect>
+						<DropShadowEffect ShadowDepth="3" Opacity="0.4" BlurRadius="10"/>
+					</Border.Effect>
+
+					<StackPanel>
+						<!-- Drawing Tools -->
+						<StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+							<TextBlock Text="✏️ UNELTE DESENARE"
+									   FontWeight="Bold"
+									   FontSize="13"
+									   VerticalAlignment="Center"
+									   Margin="0,0,15,0"
+									   Foreground="#9C27B0"/>
+
+							<RadioButton Content="🧱 Perete"
+										 GroupName="Tools"
+										 IsChecked="True"
+										 Click="Tool_Wall_Click"
+										 Margin="0,0,8,0"
+										 VerticalAlignment="Center"/>
+
+							<RadioButton Content="📏 Detalii"
+										 GroupName="Tools"
+										 Click="Tool_Detail_Click"
+										 Margin="0,0,8,0"
+										 VerticalAlignment="Center"/>
+
+							<RadioButton Content="📐 Linie Dreaptă"
+										 GroupName="Tools"
+										 Click="Tool_Line_Click"
+										 Margin="0,0,8,0"
+										 VerticalAlignment="Center"/>
+
+							<RadioButton Content="🧽 Radieră"
+										 GroupName="Tools"
+										 Click="Tool_Eraser_Click"
+										 Margin="0,0,0,0"
+										 VerticalAlignment="Center"/>
+						</StackPanel>
+
+						<!-- Stamp Tools -->
+						<StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+							<TextBlock Text="🏠 OBIECTE"
+									   FontWeight="Bold"
+									   FontSize="13"
+									   VerticalAlignment="Center"
+									   Margin="0,0,15,0"
+									   Foreground="#FF6B35"/>
+
+							<Button Content="📡 Router"
+									Click="AddRouter_Click"
+									Padding="8,4"
+									Margin="0,0,5,0"
+									Background="#2196F3"
+									Foreground="White"
+									BorderThickness="0"
+									Cursor="Hand"
+									FontSize="11"/>
+
+							<Button Content="❄️ Frigider"
+									Click="AddFridge_Click"
+									Padding="8,4"
+									Margin="0,0,5,0"
+									Background="#00BCD4"
+									Foreground="White"
+									BorderThickness="0"
+									Cursor="Hand"
+									FontSize="11"/>
+
+							<Button Content="📻 Microunde"
+									Click="AddMicrowave_Click"
+									Padding="8,4"
+									Margin="0,0,5,0"
+									Background="#FF9800"
+									Foreground="White"
+									BorderThickness="0"
+									Cursor="Hand"
+									FontSize="11"/>
+
+							<Button Content="🧱 Zid Beton"
+									Click="AddConcreteWall_Click"
+									Padding="8,4"
+									Margin="0,0,0,0"
+									Background="#795548"
+									Foreground="White"
+									BorderThickness="0"
+									Cursor="Hand"
+									FontSize="11"/>
+						</StackPanel>
+
+						<!-- Action Buttons -->
+						<StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+							<Button Content="💾 Salvează Schița"
+									Click="SaveSketch_Click"
+									Background="#4CAF50"
+									Foreground="White"
+									Padding="15,8"
+									Margin="0,0,5,0"
+									FontWeight="SemiBold"
+									Cursor="Hand"
+									BorderThickness="0"/>
+
+							<Button Content="❌ Anulează"
+									Click="CancelSketch_Click"
+									Background="#F44336"
+									Foreground="White"
+									Padding="15,8"
+									FontWeight="SemiBold"
+									Cursor="Hand"
+									BorderThickness="0"/>
+						</StackPanel>
+					</StackPanel>
+				</Border>
+
+				<!-- Instructions - ALWAYS ON TOP -->
+				<TextBlock Text="Desenează planul cu uneltele de mai sus. Adaugă obiecte (router, frigider) care afectează semnalul WiFi."
+						   HorizontalAlignment="Center"
+						   VerticalAlignment="Bottom"
+						   Margin="0,0,0,15"
+						   Foreground="#666"
+						   FontSize="12"
+						   TextWrapping="Wrap"
+						   TextAlignment="Center"
+						   MaxWidth="700"
+						   Panel.ZIndex="200"/>
+			</Grid>
+			
 			<!-- Instructions overlay -->
 			<Border Grid.Row="1"
                     Background="#F0F0F0"
