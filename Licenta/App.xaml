@@ -3,18 +3,270 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:WifiSignalOptimizer"
              StartupUri="Views/MainWindow.xaml">
-
     <Application.Resources>
-        <!-- Value Converters -->
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- CONVERTORI (păstrați din original)             -->
+        <!-- ═══════════════════════════════════════════════ -->
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
-
-        <!-- Invert Boolean Converter -->
         <local:InvertBooleanConverter x:Key="InvertBoolConverter"/>
-
-        <!-- Null to Visibility Converter -->
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
-
-        <!-- Invert Null to Visibility Converter -->
         <local:InvertNullToVisibilityConverter x:Key="InvertNullToVisibilityConverter"/>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- PALETA DE CULORI — Dark Professional (VS Code) -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <SolidColorBrush x:Key="BgBase"        Color="#1E1E1E"/>
+        <SolidColorBrush x:Key="BgPanel"       Color="#252526"/>
+        <SolidColorBrush x:Key="BgSection"     Color="#2D2D30"/>
+        <SolidColorBrush x:Key="BgHover"       Color="#3E3E42"/>
+        <SolidColorBrush x:Key="BgActive"      Color="#094771"/>
+        <SolidColorBrush x:Key="Accent"        Color="#007ACC"/>
+        <SolidColorBrush x:Key="AccentHover"   Color="#1C97EA"/>
+        <SolidColorBrush x:Key="Danger"        Color="#F44747"/>
+        <SolidColorBrush x:Key="Success"       Color="#4EC9B0"/>
+        <SolidColorBrush x:Key="Warning"       Color="#CE9178"/>
+        <SolidColorBrush x:Key="TextPrimary"   Color="#D4D4D4"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#9D9D9D"/>
+        <SolidColorBrush x:Key="TextDisabled"  Color="#555555"/>
+        <SolidColorBrush x:Key="BorderBrush"   Color="#3F3F46"/>
+        <SolidColorBrush x:Key="SectionHeader" Color="#3C3C3C"/>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- BUTON SIDEBAR — flat dark cu highlight la hover -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <Style x:Key="SidebarButton" TargetType="Button">
+            <Setter Property="Background"                 Value="Transparent"/>
+            <Setter Property="Foreground"                 Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontSize"                   Value="13"/>
+            <Setter Property="FontFamily"                 Value="Segoe UI"/>
+            <Setter Property="Padding"                    Value="12,7"/>
+            <Setter Property="Margin"                     Value="0,1"/>
+            <Setter Property="BorderThickness"            Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor"                     Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter VerticalAlignment="Center"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgActive}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource TextDisabled}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Buton accent albastru — acțiuni primare -->
+        <Style x:Key="AccentButton" TargetType="Button">
+            <Setter Property="Background"                 Value="{StaticResource Accent}"/>
+            <Setter Property="Foreground"                 Value="White"/>
+            <Setter Property="FontSize"                   Value="13"/>
+            <Setter Property="FontFamily"                 Value="Segoe UI"/>
+            <Setter Property="FontWeight"                 Value="SemiBold"/>
+            <Setter Property="Padding"                    Value="12,7"/>
+            <Setter Property="Margin"                     Value="0,1"/>
+            <Setter Property="BorderThickness"            Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor"                     Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgSection}"/>
+                                <Setter Property="Foreground"               Value="{StaticResource TextDisabled}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Buton pericol — text roșu, fără fundal -->
+        <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+            <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+        </Style>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- EXPANDER — secțiuni pliabile stil VS Code      -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <Style x:Key="SidebarExpander" TargetType="Expander">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{StaticResource TextSecondary}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="0"/>
+            <Setter Property="Margin"          Value="0,0,0,2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <StackPanel>
+                            <ToggleButton x:Name="HeaderToggle"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                          Background="{StaticResource SectionHeader}"
+                                          Foreground="{StaticResource TextSecondary}"
+                                          BorderThickness="0"
+                                          Padding="10,8"
+                                          Cursor="Hand">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="hBd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="20"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path x:Name="arrow" Grid.Column="0" 
+                                                      Data="M 0,0 L 5,5 L 0,10" 
+                                                      Stroke="{StaticResource TextSecondary}" StrokeThickness="2"
+                                                      HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                                                <ContentPresenter Grid.Column="1" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="arrow" Property="Data" Value="M 0,0 L 10,0 L 5,5"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="hBd" Property="Background" Value="{StaticResource BgHover}"/>
+                                                <Setter TargetName="arrow" Property="Stroke" Value="{StaticResource TextPrimary}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="expandContent" Visibility="Collapsed"/>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="expandContent" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- LISTBOX ITEM — rețele simple (Mod Basic)       -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <Style x:Key="NetworkItemBasic" TargetType="ListBoxItem">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Padding"         Value="8,5"/>
+            <Setter Property="Margin"          Value="0,1"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgActive}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- DATAGRID — dark theme complet                  -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <Style TargetType="DataGrid">
+            <Setter Property="Background"               Value="{StaticResource BgPanel}"/>
+            <Setter Property="Foreground"               Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderThickness"          Value="0"/>
+            <Setter Property="GridLinesVisibility"      Value="Horizontal"/>
+            <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="AutoGenerateColumns"      Value="False"/>
+            <Setter Property="IsReadOnly"               Value="True"/>
+            <Setter Property="CanUserAddRows"           Value="False"/>
+            <Setter Property="CanUserDeleteRows"        Value="False"/>
+            <Setter Property="SelectionMode"            Value="Single"/>
+            <Setter Property="HeadersVisibility"        Value="Column"/>
+            <Setter Property="RowBackground"            Value="Transparent"/>
+            <Setter Property="AlternatingRowBackground" Value="#1F1F1F"/>
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background"      Value="{StaticResource BgSection}"/>
+            <Setter Property="Foreground"      Value="{StaticResource TextSecondary}"/>
+            <Setter Property="FontSize"        Value="11"/>
+            <Setter Property="Padding"         Value="8,4"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush}"/>
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BgHover}"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{StaticResource BgActive}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="6,3"/>
+            <Setter Property="FontSize"        Value="12"/>
+        </Style>
+
+        <!-- ProgressBar accent slim -->
+        <Style TargetType="ProgressBar">
+            <Setter Property="Height"          Value="4"/>
+            <Setter Property="Background"      Value="{StaticResource BgHover}"/>
+            <Setter Property="Foreground"      Value="{StaticResource Accent}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+
+        <!-- CheckBox dark -->
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontSize"   Value="12"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+        </Style>
+
     </Application.Resources>
 </Application>

@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -29,6 +30,9 @@ public sealed partial class MainViewModel : ObservableObject
     private ObservableCollection<WifiNetwork> _visibleNetworks = [];
 
     [ObservableProperty]
+    private WifiNetwork? _selectedNetwork;
+
+    [ObservableProperty]
     private BitmapImage? _floorPlan;
 
     [ObservableProperty]
@@ -45,6 +49,16 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private int _surveyPointCount;
+
+    [ObservableProperty]
+    private double _pixelsPerMeter = 50.0;
+
+    [ObservableProperty]
+    private bool _isCalibrated = false;
+
+    // Modul de afișare: false = Basic (utilizatori de rând), true = Expert (tehnicieni)
+    [ObservableProperty]
+    private bool _isExpertMode = false;
 
     public string AutoScanButtonText => IsAutoScanning ? "⏸️ Stop Auto-Scan" : "▶️ Start Auto-Scan";
 
@@ -174,9 +188,70 @@ public sealed partial class MainViewModel : ObservableObject
                        $"- {VisibleNetworks.Count} rețele detectate";
     }
 
-    /// <summary>
-    /// Registers a map element (router, fridge, etc.) for AI analysis
-    /// </summary>
+    [RelayCommand]
+    private void AnalyzeNetwork()
+    {
+        if (SelectedNetwork == null)
+        {
+            MessageBox.Show("Te rog să selectezi o rețea din tabelul din stânga pentru a o analiza!",
+                            "Atenție", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Analizăm spectrul radio folosind Machine Learning (K-Means)...";
+
+            var doctor = new WifiDoctorService();
+            var report = doctor.AnalyzeNetwork(SelectedNetwork, VisibleNetworks.ToList().AsReadOnly());
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"🧠 RAPORT DE SĂNĂTATE AI (ML.NET) - {report.TargetSSID}");
+            sb.AppendLine("--------------------------------------------------");
+            sb.AppendLine($"⭐ Scor General: {report.OverallHealthScore:F1} / 100");
+            sb.AppendLine($"📡 Canal Curent: {report.CurrentChannel} | 🏆 Canal Optim Recomandat: {report.BestChannel}");
+            sb.AppendLine("--------------------------------------------------\n");
+
+            sb.AppendLine("📊 ANALIZĂ CANALE (Clustering K-Means):");
+
+            var activeChannels = report.ChannelDetails
+                                       .Where(c => c.InterferenceScore > 0)
+                                       .OrderByDescending(c => c.InterferenceScore)
+                                       .Take(5);
+
+            foreach (var ch in activeChannels)
+            {
+                sb.AppendLine($"   • Canalul {ch.Channel} -> {ch.Status} (Stres: {ch.InterferenceScore:F0} | Vecini pe canal: {ch.CoChannelNeighbors})");
+            }
+
+            sb.AppendLine("\n💡 RECOMANDĂRI:");
+            if (report.ActionableInsights.Count == 0)
+            {
+                sb.AppendLine("   ➤ Totul arată perfect! Nu este nevoie de nicio optimizare.");
+            }
+            else
+            {
+                foreach (var insight in report.ActionableInsights)
+                {
+                    sb.AppendLine($"   ➤ {insight}");
+                }
+            }
+
+            MessageBoxImage icon = report.OverallHealthScore >= 80 ? MessageBoxImage.Information :
+                                   report.OverallHealthScore >= 50 ? MessageBoxImage.Warning :
+                                   MessageBoxImage.Error;
+
+            StatusMessage = "Analiză completă.";
+            MessageBox.Show(sb.ToString(), "Doctor Wi-Fi (Sistem AI)", MessageBoxButton.OK, icon);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"A apărut o eroare la rularea modelului ML.NET: {ex.Message}",
+                            "Eroare AI", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusMessage = "Eroare la analiza AI.";
+        }
+    }
+
     [RelayCommand]
     private void RegisterMapElement(object parameter)
     {
@@ -198,9 +273,6 @@ public sealed partial class MainViewModel : ObservableObject
                        $"- Penalizare semnal: {element.SignalPenalty} dBm";
     }
 
-    /// <summary>
-    /// Gets all registered map elements (for AI prediction)
-    /// </summary>
     public IReadOnlyList<MapElement> GetMapElements() => _mapElements.AsReadOnly();
 
     [RelayCommand]
@@ -225,11 +297,17 @@ public sealed partial class MainViewModel : ObservableObject
             int width = FloorPlan.PixelWidth;
             int height = FloorPlan.PixelHeight;
 
-            // ✅ CORECTAT: Folosim semnătura corectă (3 parametri)
+            // Scara de calibrare (50 e default dacă n-a calibrat manual)
+            double scara = IsCalibrated ? PixelsPerMeter : 50.0;
+
+            // Obstacolele înregistrate pe hartă (ziduri, frigidere, etc.)
+            var elementsList = _mapElements.ToList();
+
             var heatmap = await Task.Run(() =>
             {
                 var service = new HeatmapService();
-                return service.GenerateHeatmap(_surveyPoints, width, height);
+                // Trimitem scara și obstacolele pentru simulare fizică corectă
+                return service.GenerateHeatmap(_surveyPoints, elementsList, width, height, scara);
             });
 
             if (heatmap != null && heatmap.CanFreeze)
@@ -238,7 +316,13 @@ public sealed partial class MainViewModel : ObservableObject
             }
 
             HeatmapOverlay = heatmap;
-            StatusMessage = $"Heatmap generat cu succes din {_surveyPoints.Count} puncte.";
+
+            string calibrareInfo = IsCalibrated
+                ? $"(calibrat: {PixelsPerMeter:F1} px/m)"
+                : "(necalibrat, folosind 50 px/m implicit)";
+
+            StatusMessage = $"Heatmap generat din {_surveyPoints.Count} puncte, " +
+                            $"{elementsList.Count} obstacole {calibrareInfo}.";
         }
         catch (Exception ex)
         {
@@ -246,21 +330,42 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    // Butonul "Salvare" din panou trimite un mesaj către MainWindow
+    // care colectează schița curentă și apelează SaveProjectWithSketch
     [RelayCommand]
     private void SaveProject()
     {
-        if (_surveyPoints.Count == 0)
+        // Cerem MainWindow să colecteze schița și să declanșeze salvarea completă
+        WeakReferenceMessenger.Default.Send(new RequestSaveWithSketchMessage());
+    }
+
+    /// <summary>
+    /// Salvare completă: apelat din MainWindow când există schiță de inclus.
+    /// </summary>
+    public void SaveProjectWithSketch(
+        System.Windows.Ink.StrokeCollection? sketchStrokes,
+        System.Windows.Media.Imaging.BitmapSource? sketchPng)
+    {
+        if (_surveyPoints.Count == 0 && sketchStrokes == null)
         {
-            MessageBox.Show("Nu ai nicio măsurătoare de salvat!", "Informație", 
+            MessageBox.Show("Nu ai nicio măsurătoare sau schiță de salvat!", "Informație",
                 MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         try
         {
-            // ✅ CORECTAT: Folosim semnătura corectă (1 parametru - doar points)
-            _projectService.SaveProject(_surveyPoints);
-            StatusMessage = $"Proiect salvat cu succes! ({_surveyPoints.Count} puncte)";
+            _projectService.SaveProject(
+                _surveyPoints.ToList(),
+                _mapElements.ToList(),
+                PixelsPerMeter,
+                IsCalibrated,
+                sketchStrokes,
+                sketchPng);
+
+            string calibrareInfo = IsCalibrated ? $" | Scară: {PixelsPerMeter:F1} px/m" : "";
+            StatusMessage = $"Proiect salvat! ({_surveyPoints.Count} puncte, " +
+                            $"{_mapElements.Count} obstacole{calibrareInfo})";
         }
         catch (Exception ex)
         {
@@ -273,29 +378,50 @@ public sealed partial class MainViewModel : ObservableObject
     {
         try
         {
-            // ✅ CORECTAT: Folosim semnătura corectă (returnează List<SurveyPoint>?)
-            var loadedPoints = _projectService.LoadProject();
-            
-            if (loadedPoints != null && loadedPoints.Count > 0)
+            var (projectData, strokes) = _projectService.LoadProject();
+
+            if (projectData != null)
             {
                 _surveyPoints.Clear();
-                _mapElements.Clear(); // Clear map elements too
-                
-                foreach (var point in loadedPoints)
-                {
+                _mapElements.Clear();
+
+                foreach (var point in projectData.SurveyPoints)
                     _surveyPoints.Add(point);
-                }
-                
+
+                foreach (var element in projectData.MapElements)
+                    _mapElements.Add(element);
+
+                PixelsPerMeter = projectData.PixelsPerMeter;
+                IsCalibrated = projectData.IsCalibrated;
                 SurveyPointCount = _surveyPoints.Count;
-                StatusMessage = $"Proiect încărcat cu succes! ({_surveyPoints.Count} puncte)";
+
+                string calibrareInfo = IsCalibrated
+                    ? $" | Scară: {PixelsPerMeter:F1} px/m"
+                    : " | Fără calibrare";
+
+                StatusMessage = $"Proiect încărcat! ({_surveyPoints.Count} puncte, " +
+                                $"{_mapElements.Count} obstacole{calibrareInfo})";
 
                 WeakReferenceMessenger.Default.Send(new ClearSurveyPointsMessage());
                 WeakReferenceMessenger.Default.Send(new RedrawSurveyPointsMessage(_surveyPoints));
 
-                if (FloorPlan != null && _surveyPoints.Count >= 2)
+                if (_mapElements.Count > 0)
+                    WeakReferenceMessenger.Default.Send(new RedrawMapElementsMessage(_mapElements));
+
+                // Dacă există schiță vectorială, o restaurăm pe EditorCanvas
+                if (strokes != null)
+                    WeakReferenceMessenger.Default.Send(new RestoreSketchMessage(strokes));
+
+                // Dacă există PNG schiță salvat, îl restaurăm ca FloorPlan via MapService
+                if (!string.IsNullOrEmpty(projectData.SketchPngBase64) && FloorPlan == null)
                 {
-                    await GenerateHeatmapAsync();
+                    var restoredPlan = await _mapService.LoadFromBase64Async(projectData.SketchPngBase64);
+                    if (restoredPlan != null)
+                        FloorPlan = restoredPlan;
                 }
+
+                if (FloorPlan != null && _surveyPoints.Count >= 2)
+                    await GenerateHeatmapAsync();
             }
             else
             {
@@ -309,6 +435,37 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     public IReadOnlyList<SurveyPoint> GetSurveyPoints() => _surveyPoints.AsReadOnly();
+
+    [RelayCommand]
+    private async Task CalculateOptimalRouterAsync()
+    {
+        if (FloorPlan == null)
+        {
+            MessageBox.Show("Încarcă o hartă mai întâi!", "Eroare",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        StatusMessage = "Calculăm poziția optimă folosind algoritmul Min-Max...";
+
+        var elements = _mapElements.ToList();
+        var surveys = _surveyPoints.ToList();
+        double scara = IsCalibrated ? PixelsPerMeter : 50.0;
+        double width = FloorPlan.PixelWidth;
+        double height = FloorPlan.PixelHeight;
+
+        // Rulăm algoritmul Min-Max pe background thread (poate dura 1-2 sec)
+        Point optimalPosition = await Task.Run(() =>
+        {
+            var optimizer = new RouterOptimizationService();
+            return optimizer.FindOptimalPosition(elements, surveys, width, height, scara);
+        });
+
+        StatusMessage = $"✅ Poziție optimă: X={optimalPosition.X:F0}, Y={optimalPosition.Y:F0} " +
+                        $"— semnal uniform garantat în toată casa.";
+
+        WeakReferenceMessenger.Default.Send(new ShowOptimalRouterMessage(optimalPosition));
+    }
 
     [RelayCommand]
     private void ClearSurveyPoints()
@@ -330,9 +487,43 @@ public sealed class ClearSurveyPointsMessage
 public sealed class RedrawSurveyPointsMessage
 {
     public IReadOnlyList<SurveyPoint> SurveyPoints { get; }
-    
+
     public RedrawSurveyPointsMessage(IReadOnlyList<SurveyPoint> surveyPoints)
     {
         SurveyPoints = surveyPoints;
     }
+}
+
+public sealed class RedrawMapElementsMessage
+{
+    public IReadOnlyList<MapElement> MapElements { get; }
+
+    public RedrawMapElementsMessage(IReadOnlyList<MapElement> mapElements)
+    {
+        MapElements = mapElements;
+    }
+}
+
+public sealed class RestoreSketchMessage
+{
+    public System.Windows.Ink.StrokeCollection Strokes { get; }
+
+    public RestoreSketchMessage(System.Windows.Ink.StrokeCollection strokes)
+    {
+        Strokes = strokes;
+    }
+}
+
+/// <summary>
+/// ViewModel trimite acest mesaj când vrea să salveze.
+/// MainWindow îl primește, colectează datele schiței și apelează SaveProjectWithSketch.
+/// </summary>
+public sealed class RequestSaveWithSketchMessage
+{
+}
+
+public sealed class ShowOptimalRouterMessage
+{
+    public Point OptimalPoint { get; }
+    public ShowOptimalRouterMessage(Point point) { OptimalPoint = point; }
 }
