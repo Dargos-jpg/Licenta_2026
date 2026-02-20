@@ -39,7 +39,7 @@ public partial class MainWindow : Window
     private const int GRID_SIZE = 20;
 
     // Drag & Drop for stamps
-    private Image? _draggedImage;
+    private FrameworkElement? _draggedImage;
     private Point _dragOffset;
     private bool _isDraggingElement = false;
 
@@ -165,6 +165,7 @@ public partial class MainWindow : Window
     {
         if (_viewModel.FloorPlan == null) return;
 
+        // Calibrare are prioritate absolută
         if (_isCalibrating)
         {
             _startPoint = e.GetPosition(MapContent);
@@ -178,17 +179,94 @@ public partial class MainWindow : Window
                 StrokeThickness = 3,
                 StrokeDashArray = new DoubleCollection { 4, 2 }
             };
-
             MapContent.Children.Add(_calibrationLine);
             MapContent.CaptureMouse();
             e.Handled = true;
             return;
         }
 
-        _isDragging = true;
-        _lastMousePosition = e.GetPosition(MapCanvas);
-        MapContent.CaptureMouse();
-        e.Handled = true;
+        var clickPos = e.GetPosition(MapContent);
+        string tool = GetActiveTool();
+
+        switch (tool)
+        {
+            case "SurveyPoint":
+                // Plasează punct de măsurare (fostul click dreapta)
+                int signal = _viewModel.VisibleNetworks.Count > 0
+                    ? _viewModel.VisibleNetworks.Max(n => n.SignalStrength)
+                    : -90;
+                DrawSurveyPoint(clickPos, signal);
+                _viewModel.RecordPointCommand.Execute(clickPos);
+                e.Handled = true;
+                break;
+
+            case "Router":
+                PlaceObstacleAtPoint(clickPos, ElementType.Router);
+                e.Handled = true;
+                break;
+
+            case "ConcreteWall":
+                PlaceObstacleAtPoint(clickPos, ElementType.ConcreteWall);
+                e.Handled = true;
+                break;
+
+            case "BrickWall":
+                PlaceObstacleAtPoint(clickPos, ElementType.BrickWall);
+                e.Handled = true;
+                break;
+
+            case "WoodDoor":
+                PlaceObstacleAtPoint(clickPos, ElementType.WoodDoor);
+                e.Handled = true;
+                break;
+
+            case "Fridge":
+                PlaceObstacleAtPoint(clickPos, ElementType.Fridge);
+                e.Handled = true;
+                break;
+
+            case "TV":
+                PlaceObstacleAtPoint(clickPos, ElementType.TV);
+                e.Handled = true;
+                break;
+
+            case "Microwave":
+                PlaceObstacleAtPoint(clickPos, ElementType.Microwave);
+                e.Handled = true;
+                break;
+
+            default:
+                // Pointer / navigare → drag normal
+                _isDragging = true;
+                _lastMousePosition = e.GetPosition(MapCanvas);
+                MapContent.CaptureMouse();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Plasează un element (obstacol/router) direct la coordonatele click-ului.
+    /// Paradigma "Selectează unealtă → Click pe hartă".
+    /// </summary>
+    private void PlaceObstacleAtPoint(Point pos, ElementType type)
+    {
+        var element = CreateEmojiElement(type);
+
+        // Centrăm elementul pe click
+        Canvas.SetLeft(element, pos.X - 20);
+        Canvas.SetTop(element, pos.Y - 20);
+
+        ObjectsCanvas.Children.Add(element);
+
+        _viewModel.RegisterMapElementCommand.Execute(new MapElement
+        {
+            Type = type,
+            X = pos.X - 20,
+            Y = pos.Y - 20
+        });
+
+        _viewModel.StatusMessage = $"{GetEmoji(type)}  {type} plasat la X={pos.X:F0}, Y={pos.Y:F0}";
     }
 
     private void MapContent_MouseMove(object sender, MouseEventArgs e)
@@ -385,36 +463,10 @@ public partial class MainWindow : Window
 
         foreach (var element in elements)
         {
-            string iconPath = element.Type switch
-            {
-                ElementType.Router => "pack://application:,,,/Images/router_icon.png",
-                ElementType.Fridge => "pack://application:,,,/Images/fridge_icon.png",
-                ElementType.Microwave => "pack://application:,,,/Images/microwave_icon.png",
-                ElementType.ConcreteWall => "pack://application:,,,/Images/wall_icon.png",
-                _ => "pack://application:,,,/Images/router_icon.png"
-            };
-
-            try
-            {
-                Image icon = new Image
-                {
-                    Source = new BitmapImage(new Uri(iconPath)),
-                    Width = 40,
-                    Height = 40,
-                    Cursor = Cursors.Hand,
-                    Tag = element.Type
-                };
-
-                Canvas.SetLeft(icon, element.X);
-                Canvas.SetTop(icon, element.Y);
-
-                icon.MouseLeftButtonDown += Element_MouseDown;
-                icon.MouseLeftButtonUp += Element_MouseUp;
-                icon.MouseMove += Element_MouseMove;
-
-                ObjectsCanvas.Children.Add(icon);
-            }
-            catch { /* Iconița lipsă - ignorăm silențios */ }
+            var visual = CreateEmojiElement(element.Type);
+            Canvas.SetLeft(visual, element.X);
+            Canvas.SetTop(visual, element.Y);
+            ObjectsCanvas.Children.Add(visual);
         }
     }
 
@@ -458,6 +510,111 @@ public partial class MainWindow : Window
         _viewModel.IsExpertMode = true;
         _viewModel.StatusMessage = "Mod Expert activat — toate funcțiile sunt disponibile.";
     }
+
+    #region Toolbox Handlers — unealta activă determină acțiunea click-ului pe hartă
+
+    /// <summary>
+    /// Returnează ce unealtă e selectată curent în Toolbox.
+    /// Folosit în MapContent_MouseLeftButtonDown pentru a decide acțiunea.
+    /// </summary>
+    private string GetActiveTool()
+    {
+        if (ToolSurveyPoint?.IsChecked == true) return "SurveyPoint";
+        if (ToolPointer?.IsChecked == true) return "Pointer";
+        if (ToolRouter?.IsChecked == true) return "Router";
+        if (ToolWallConcrete?.IsChecked == true) return "ConcreteWall";
+        if (ToolWallBrick?.IsChecked == true) return "BrickWall";
+        if (ToolDoorWood?.IsChecked == true) return "WoodDoor";
+        if (ToolFridge?.IsChecked == true) return "Fridge";
+        if (ToolTV?.IsChecked == true) return "TV";
+        if (ToolMicrowave?.IsChecked == true) return "Microwave";
+        if (ToolDrawWall?.IsChecked == true) return "DrawWall";
+        if (ToolDrawLine?.IsChecked == true) return "DrawLine";
+        if (ToolEraser?.IsChecked == true) return "Eraser";
+        return "SurveyPoint"; // fallback
+    }
+
+    private void UpdateActiveToolLabel(string toolName)
+    {
+        if (ActiveToolLabel == null) return;
+        ActiveToolLabel.Text = toolName switch
+        {
+            "SurveyPoint" => "● Punct Măsurare activ",
+            "Pointer" => "● Navigare / Mutare activ",
+            "Router" => "● Router Virtual activ",
+            "ConcreteWall" => "● Zid Beton activ  −12 dBm",
+            "BrickWall" => "● Cărămidă activă  −6 dBm",
+            "WoodDoor" => "● Ușă Lemn activă  −3 dBm",
+            "Fridge" => "● Frigider activ  −15 dBm",
+            "TV" => "● Televizor activ  −5 dBm",
+            "Microwave" => "● Microunde activ  −8 dBm",
+            "DrawWall" => "● Desenare Perete activă",
+            "DrawLine" => "● Linie Dreaptă activă",
+            "Eraser" => "● Radieră activă",
+            _ => "● Unealtă activă"
+        };
+    }
+
+    private void ToolSurveyPoint_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        UpdateActiveToolLabel("SurveyPoint");
+        MapContent.Cursor = Cursors.Cross;
+        _viewModel.StatusMessage = "Click stânga pe hartă pentru a plasa un punct de măsurare.";
+    }
+
+    private void ToolPointer_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        UpdateActiveToolLabel("Pointer");
+        MapContent.Cursor = Cursors.Hand;
+        _viewModel.StatusMessage = "Mod navigare: trage harta cu click stânga.";
+    }
+
+    private void ToolObstacle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        if (sender is not RadioButton rb) return;
+        var tag = rb.Tag?.ToString() ?? "";
+        UpdateActiveToolLabel(tag);
+        MapContent.Cursor = Cursors.Cross;
+
+        string desc = tag switch
+        {
+            "ConcreteWall" => "Zid Beton (−12 dBm)",
+            "BrickWall" => "Cărămidă (−6 dBm)",
+            "WoodDoor" => "Ușă Lemn (−3 dBm)",
+            "Fridge" => "Frigider (−15 dBm)",
+            "TV" => "Televizor (−5 dBm)",
+            "Microwave" => "Microunde (−8 dBm)",
+            "Router" => "Router Virtual",
+            _ => tag
+        };
+        _viewModel.StatusMessage = $"Click stânga pe hartă pentru a plasa: {desc}";
+    }
+
+    private void ToolDrawWall_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        UpdateActiveToolLabel("DrawWall");
+        Tool_Wall_Click(sender, e);
+    }
+
+    private void ToolDrawLine_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        UpdateActiveToolLabel("DrawLine");
+        Tool_Line_Click(sender, e);
+    }
+
+    private void ToolEraser_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel == null) return;
+        UpdateActiveToolLabel("Eraser");
+        Tool_Eraser_Click(sender, e);
+    }
+
+    #endregion
 
     private void FinishCalibration(Point start, Point end)
     {
@@ -706,61 +863,84 @@ public partial class MainWindow : Window
 
     #region Stamp Objects (Router, Fridge, etc.)
 
-    private void AddRouter_Click(object sender, RoutedEventArgs e)
+    // Mapare ElementType → emoji
+    private static string GetEmoji(ElementType type) => type switch
     {
-        AddElementToCanvas("pack://application:,,,/Images/router_icon.png", ElementType.Router);
-    }
+        ElementType.Router => "📡",
+        ElementType.Fridge => "❄️",
+        ElementType.Microwave => "📻",
+        ElementType.ConcreteWall => "🧱",
+        ElementType.BrickWall => "🧱",
+        ElementType.WoodDoor => "🚪",
+        ElementType.TV => "📺",
+        _ => "📦"
+    };
+
+    private void AddRouter_Click(object sender, RoutedEventArgs e)
+        => AddElementToCanvas(ElementType.Router);
 
     private void AddFridge_Click(object sender, RoutedEventArgs e)
-    {
-        AddElementToCanvas("pack://application:,,,/Images/fridge_icon.png", ElementType.Fridge);
-    }
+        => AddElementToCanvas(ElementType.Fridge);
 
     private void AddMicrowave_Click(object sender, RoutedEventArgs e)
-    {
-        AddElementToCanvas("pack://application:,,,/Images/microwave_icon.png", ElementType.Microwave);
-    }
+        => AddElementToCanvas(ElementType.Microwave);
 
     private void AddConcreteWall_Click(object sender, RoutedEventArgs e)
+        => AddElementToCanvas(ElementType.ConcreteWall);
+
+    /// <summary>
+    /// Creează un element vizual cu emoji și îl plasează la centrul canvas-ului.
+    /// Folosit de butoanele din Drawing Overlay toolbar.
+    /// </summary>
+    private void AddElementToCanvas(ElementType type)
     {
-        AddElementToCanvas("pack://application:,,,/Images/wall_icon.png", ElementType.ConcreteWall);
+        var element = CreateEmojiElement(type);
+        Canvas.SetLeft(element, 200);
+        Canvas.SetTop(element, 200);
+        ObjectsCanvas.Children.Add(element);
     }
 
-    private void AddElementToCanvas(string iconPath, ElementType type)
+    /// <summary>
+    /// Creează elementul vizual emoji (Border + TextBlock) pentru un tip de obstacol.
+    /// </summary>
+    private Border CreateEmojiElement(ElementType type)
     {
-        try
+        var tb = new TextBlock
         {
-            Image icon = new Image
-            {
-                Source = new BitmapImage(new Uri(iconPath)),
-                Width = 40,
-                Height = 40,
-                Cursor = Cursors.Hand,
-                Tag = type
-            };
+            Text = GetEmoji(type),
+            FontSize = 24,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
 
-            Canvas.SetLeft(icon, 200);
-            Canvas.SetTop(icon, 200);
-
-            icon.MouseLeftButtonDown += Element_MouseDown;
-            icon.MouseLeftButtonUp += Element_MouseUp;
-            icon.MouseMove += Element_MouseMove;
-
-            ObjectsCanvas.Children.Add(icon);
-        }
-        catch (Exception ex)
+        var border = new Border
         {
-            MessageBox.Show($"Nu s-a putut încărca iconița: {ex.Message}", "Eroare",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
+            Width = 40,
+            Height = 40,
+            Background = new SolidColorBrush(Color.FromArgb(180, 30, 30, 30)),
+            BorderBrush = new SolidColorBrush(Color.FromArgb(200, 0, 122, 204)),
+            BorderThickness = new Thickness(1.5),
+            CornerRadius = new CornerRadius(6),
+            Child = tb,
+            Cursor = Cursors.Hand,
+            Tag = type,
+            ToolTip = $"{GetEmoji(type)}  {type}  (−{new MapElement { Type = type }.SignalPenalty} dBm)"
+        };
+
+        border.MouseLeftButtonDown += Element_MouseDown;
+        border.MouseLeftButtonUp += Element_MouseUp;
+        border.MouseMove += Element_MouseMove;
+
+        return border;
     }
 
     private void Element_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        _draggedImage = sender as Image;
+        if (sender is not FrameworkElement fe) return;
+        _draggedImage = fe;
         _isDraggingElement = true;
         _dragOffset = e.GetPosition(_draggedImage);
-        _draggedImage?.CaptureMouse();
+        _draggedImage.CaptureMouse();
         e.Handled = true;
     }
 

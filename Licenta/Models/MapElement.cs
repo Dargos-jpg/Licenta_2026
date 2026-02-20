@@ -1,6 +1,15 @@
 ﻿namespace WifiSignalOptimizer.Models
 {
-    public enum ElementType { Router, Fridge, Microwave, ConcreteWall }
+    public enum ElementType
+    {
+        Router,
+        Fridge,
+        Microwave,
+        ConcreteWall,
+        BrickWall,   // ✅ NOU
+        WoodDoor,    // ✅ NOU
+        TV           // ✅ NOU
+    }
 
     public class MapElement
     {
@@ -8,17 +17,22 @@
         public double X { get; set; }
         public double Y { get; set; }
 
-        // Cât de mult strică semnalul acest obiect?
+        /// <summary>
+        /// Atenuarea semnalului WiFi cauzată de acest obstacol (în dBm).
+        /// </summary>
         public int SignalPenalty
         {
             get
             {
                 return Type switch
                 {
-                    ElementType.Router => 0,       // Sursa
-                    ElementType.Fridge => 15,      // Metal masiv (-15dBm)
-                    ElementType.Microwave => 10,   // Interferențe
-                    ElementType.ConcreteWall => 12,// Beton
+                    ElementType.Router => 0,   // Sursa — nu atenuează
+                    ElementType.ConcreteWall => 12,  // Beton armat
+                    ElementType.BrickWall => 6,   // Cărămidă
+                    ElementType.WoodDoor => 3,   // Ușă lemn
+                    ElementType.Fridge => 15,  // Metal masiv
+                    ElementType.Microwave => 10,  // Interferențe + metal
+                    ElementType.TV => 5,   // Metal + electronice
                     _ => 0
                 };
             }

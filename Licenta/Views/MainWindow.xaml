@@ -6,32 +6,13 @@
         mc:Ignorable="d"
         Title="WiFi Signal Optimizer"
         Height="820" Width="1400"
-        MinHeight="600" MinWidth="1000"
+        MinHeight="600" MinWidth="1100"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBase}"
         KeyDown="Window_KeyDown">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
-
-        <!-- Convertor invers: true→Collapsed, false→Visible (pentru Mod Basic banner) -->
-        <Style x:Key="ExpertOnlyVisibility" TargetType="FrameworkElement">
-            <Setter Property="Visibility" Value="Collapsed"/>
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                    <Setter Property="Visibility" Value="Visible"/>
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-
-        <Style x:Key="BasicOnlyVisibility" TargetType="FrameworkElement">
-            <Setter Property="Visibility" Value="Visible"/>
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                    <Setter Property="Visibility" Value="Collapsed"/>
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
 
         <!-- Grid brush pentru drawing overlay -->
         <DrawingBrush x:Key="GridBrush" Viewport="0,0,20,20" ViewportUnits="Absolute" TileMode="Tile">
@@ -46,52 +27,101 @@
                 </GeometryDrawing>
             </DrawingBrush.Drawing>
         </DrawingBrush>
+
+        <!-- ═══════════════════════════════════════════════ -->
+        <!-- STYLE TOOLBOX RADIOBUTTON — aspect de buton    -->
+        <!-- Click → rămâne "apăsat" (highlight albastru)   -->
+        <!-- ═══════════════════════════════════════════════ -->
+        <Style x:Key="ToolboxButton" TargetType="RadioButton">
+            <Setter Property="Background"               Value="Transparent"/>
+            <Setter Property="Foreground"               Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontSize"                 Value="12"/>
+            <Setter Property="FontFamily"               Value="Segoe UI"/>
+            <Setter Property="Padding"                  Value="10,6"/>
+            <Setter Property="Margin"                   Value="0,1"/>
+            <Setter Property="BorderThickness"          Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor"                   Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter VerticalAlignment="Center"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgHover}"/>
+                            </Trigger>
+                            <!-- Unealta activă → highlight albastru discret -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgActive}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource TextDisabled}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Label secțiune toolbox -->
+        <Style x:Key="ToolboxSectionLabel" TargetType="TextBlock">
+            <Setter Property="FontSize"     Value="10"/>
+            <Setter Property="FontWeight"   Value="Bold"/>
+            <Setter Property="FontFamily"   Value="Segoe UI"/>
+            <Setter Property="Foreground"   Value="{StaticResource TextDisabled}"/>
+            <Setter Property="Margin"       Value="10,10,0,4"/>
+        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <!-- Sidebar fix, lățime VS Code -->
             <ColumnDefinition Width="280"/>
+            <!-- Sidebar stânga -->
             <ColumnDefinition Width="*"/>
+            <!-- Hartă centru  -->
+            <ColumnDefinition Width="220"/>
+            <!-- Toolbox dreapta -->
         </Grid.ColumnDefinitions>
 
         <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- SIDEBAR STÂNGA                                              -->
+        <!-- COL 0 — SIDEBAR STÂNGA                                      -->
         <!-- ═══════════════════════════════════════════════════════════ -->
         <Grid Grid.Column="0" Background="{StaticResource BgPanel}">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>  <!-- Title bar -->
-                <RowDefinition Height="Auto"/>  <!-- Mode toggle -->
-                <RowDefinition Height="*"/>     <!-- Scrollable content -->
-                <RowDefinition Height="Auto"/>  <!-- Status bar bottom -->
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- ── Title bar ── -->
+            <!-- Title bar -->
             <Border Grid.Row="0"
                     Background="{StaticResource BgSection}"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="0,0,0,1"
                     Padding="14,10">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="📡"
-                               FontSize="16"
-                               VerticalAlignment="Center"
-                               Margin="0,0,8,0"/>
+                    <TextBlock Text="📡" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <StackPanel>
                         <TextBlock Text="WiFi Signal Optimizer"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextPrimary}"
-                                   FontFamily="Segoe UI"/>
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimary}" FontFamily="Segoe UI"/>
                         <TextBlock Text="Proiect Licență"
                                    FontSize="10"
-                                   Foreground="{StaticResource TextSecondary}"
-                                   FontFamily="Segoe UI"/>
+                                   Foreground="{StaticResource TextSecondary}" FontFamily="Segoe UI"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- ── Mode Toggle Bar ── -->
+            <!-- Mode Toggle -->
             <Border Grid.Row="1"
                     Background="{StaticResource BgBase}"
                     BorderBrush="{StaticResource BorderBrush}"
@@ -102,27 +132,18 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-
-                    <!-- Buton Basic -->
-                    <Button Grid.Column="0"
-                            Padding="0,6"
-                            Margin="2"
-                            Cursor="Hand"
-                            BorderThickness="0"
-                            Click="SetBasicMode_Click">
+                    <Button Grid.Column="0" Padding="0,6" Margin="2" Cursor="Hand"
+                            BorderThickness="0" Click="SetBasicMode_Click">
                         <Button.Style>
                             <Style TargetType="Button">
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="Button">
-                                            <Border x:Name="bd"
-                                                    CornerRadius="3"
+                                            <Border x:Name="bd" CornerRadius="3"
                                                     Padding="{TemplateBinding Padding}"
                                                     Background="Transparent">
-                                                <TextBlock x:Name="txt"
-                                                           Text="BASIC"
-                                                           FontSize="11"
-                                                           FontWeight="Bold"
+                                                <TextBlock x:Name="txt" Text="BASIC"
+                                                           FontSize="11" FontWeight="Bold"
                                                            FontFamily="Segoe UI"
                                                            HorizontalAlignment="Center"
                                                            Foreground="#9D9D9D"/>
@@ -142,27 +163,18 @@
                             </Style>
                         </Button.Style>
                     </Button>
-
-                    <!-- Buton Expert -->
-                    <Button Grid.Column="1"
-                            Padding="0,6"
-                            Margin="2"
-                            Cursor="Hand"
-                            BorderThickness="0"
-                            Click="SetExpertMode_Click">
+                    <Button Grid.Column="1" Padding="0,6" Margin="2" Cursor="Hand"
+                            BorderThickness="0" Click="SetExpertMode_Click">
                         <Button.Style>
                             <Style TargetType="Button">
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="Button">
-                                            <Border x:Name="bd"
-                                                    CornerRadius="3"
+                                            <Border x:Name="bd" CornerRadius="3"
                                                     Padding="{TemplateBinding Padding}"
                                                     Background="Transparent">
-                                                <TextBlock x:Name="txt"
-                                                           Text="EXPERT"
-                                                           FontSize="11"
-                                                           FontWeight="Bold"
+                                                <TextBlock x:Name="txt" Text="EXPERT"
+                                                           FontSize="11" FontWeight="Bold"
                                                            FontFamily="Segoe UI"
                                                            HorizontalAlignment="Center"
                                                            Foreground="#9D9D9D"/>
@@ -185,35 +197,27 @@
                 </Grid>
             </Border>
 
-            <!-- ── Scrollable sidebar content ── -->
+            <!-- Scrollable content -->
             <ScrollViewer Grid.Row="2"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,4,0,4">
 
-                    <!-- ╔═══════════════════════════════╗ -->
-                    <!-- ║  SECȚIUNEA: HARTĂ             ║ -->
-                    <!-- ╚═══════════════════════════════╝ -->
-                    <Expander Style="{StaticResource SidebarExpander}"
-                              IsExpanded="True">
+                    <!-- SECȚIUNEA: HARTĂ -->
+                    <Expander Style="{StaticResource SidebarExpander}" IsExpanded="True">
                         <Expander.Header>
-                            <TextBlock Text="HARTĂ"
-                                       FontSize="11"
-                                       FontFamily="Segoe UI"
-                                       FontWeight="Bold"
-                                       Foreground="{StaticResource TextSecondary}"
+                            <TextBlock Text="HARTĂ" FontSize="11" FontFamily="Segoe UI"
+                                       FontWeight="Bold" Foreground="{StaticResource TextSecondary}"
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="8,4,8,8">
                             <Button Content="  📂  Încarcă Plan"
-                                    
+                                    Style="{StaticResource SidebarButton}"
                                     Command="{Binding LoadMapCommand}"/>
                             <Button Content="  ✏️  Creează Schiță Nouă"
-                                    
+                                    Style="{StaticResource SidebarButton}"
                                     Click="StartSketch_Click"/>
-                            <!-- Expert only -->
                             <Button Content="  📏  Calibrează Scara"
-                                    
                                     Click="StartCalibration_Click">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
@@ -226,7 +230,7 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-                            <!-- Calibration status — expert only -->
+                            <!-- Calibration status dot -->
                             <Border Margin="4,4,0,0">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -239,9 +243,7 @@
                                     </Style>
                                 </Border.Style>
                                 <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="7" Height="7"
-                                             VerticalAlignment="Center"
-                                             Margin="0,0,6,0">
+                                    <Ellipse Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,6,0">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse">
                                                 <Setter Property="Fill" Value="{StaticResource Danger}"/>
@@ -253,8 +255,7 @@
                                             </Style>
                                         </Ellipse.Style>
                                     </Ellipse>
-                                    <TextBlock FontSize="11"
-                                               FontFamily="Segoe UI"
+                                    <TextBlock FontSize="11" FontFamily="Segoe UI"
                                                Foreground="{StaticResource TextSecondary}"
                                                Text="{Binding PixelsPerMeter, StringFormat='Scară: {0:F1} px/m'}"/>
                                 </StackPanel>
@@ -264,17 +265,11 @@
 
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,2"/>
 
-                    <!-- ╔═══════════════════════════════╗ -->
-                    <!-- ║  SECȚIUNEA: SCANARE WiFi      ║ -->
-                    <!-- ╚═══════════════════════════════╝ -->
-                    <Expander Style="{StaticResource SidebarExpander}"
-                              IsExpanded="True">
+                    <!-- SECȚIUNEA: SCANARE WiFi -->
+                    <Expander Style="{StaticResource SidebarExpander}" IsExpanded="True">
                         <Expander.Header>
-                            <TextBlock Text="SCANARE WiFi"
-                                       FontSize="11"
-                                       FontFamily="Segoe UI"
-                                       FontWeight="Bold"
-                                       Foreground="{StaticResource TextSecondary}"
+                            <TextBlock Text="SCANARE WiFi" FontSize="11" FontFamily="Segoe UI"
+                                       FontWeight="Bold" Foreground="{StaticResource TextSecondary}"
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="8,4,8,8">
@@ -285,10 +280,7 @@
                             <Button Content="  🩺  Diagnostichează Rețeaua"
                                     Style="{StaticResource SidebarButton}"
                                     Command="{Binding AnalyzeNetworkCommand}"/>
-
-                            <!-- Auto-Scan toggle — Expert only -->
-                            <Button 
-                                    Content="{Binding AutoScanButtonText}"
+                            <Button Content="{Binding AutoScanButtonText}"
                                     Command="{Binding ToggleAutoScanCommand}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
@@ -304,18 +296,11 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
-
-                            <!-- Survey counter -->
-                            <TextBlock Margin="4,6,0,0"
-                                       FontSize="11"
-                                       FontFamily="Segoe UI"
+                            <TextBlock Margin="4,6,0,0" FontSize="11" FontFamily="Segoe UI"
                                        Foreground="{StaticResource TextSecondary}"
                                        Text="{Binding SurveyPointCount, StringFormat='  {0} puncte înregistrate'}"/>
 
-                            <!-- ══════════════════════════════════ -->
-                            <!-- LISTA REȚELE — MOD BASIC          -->
-                            <!-- Listă simplă: iconiță + nume + bar -->
-                            <!-- ══════════════════════════════════ -->
+                            <!-- Lista Basic: nume + bara -->
                             <Border Margin="0,8,0,0">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -328,41 +313,32 @@
                                     </Style>
                                 </Border.Style>
                                 <StackPanel>
-                                    <TextBlock Text="Rețele detectate"
-                                               FontSize="10"
-                                               FontFamily="Segoe UI"
-                                               Foreground="{StaticResource TextSecondary}"
-                                               Margin="2,0,0,4"/>
+                                    <TextBlock Text="Rețele detectate" FontSize="10" FontFamily="Segoe UI"
+                                               Foreground="{StaticResource TextSecondary}" Margin="2,0,0,4"/>
                                     <ListBox ItemsSource="{Binding VisibleNetworks}"
                                              SelectedItem="{Binding SelectedNetwork}"
-                                             Background="Transparent"
-                                             BorderThickness="0"
-                                             MaxHeight="220"
+                                             Background="Transparent" BorderThickness="0"
+                                             MaxHeight="200"
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                              ItemContainerStyle="{StaticResource NetworkItemBasic}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="20"/>
+                                                        <ColumnDefinition Width="18"/>
                                                         <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="50"/>
+                                                        <ColumnDefinition Width="46"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0"
-                                                               Text="📶"
-                                                               FontSize="11"
-                                                               VerticalAlignment="Center"/>
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{Binding SSID}"
-                                                               FontSize="12"
-                                                               FontFamily="Segoe UI"
+                                                    <TextBlock Grid.Column="0" Text="📶"
+                                                               FontSize="11" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding SSID}"
+                                                               FontSize="12" FontFamily="Segoe UI"
                                                                Foreground="{StaticResource TextPrimary}"
                                                                VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis"/>
-                                                    <ProgressBar Grid.Column="2" 
-                                                                 Value="{Binding SignalQuality, Mode=OneWay}" 
-                                                                 Height="4" 
-                                                                 VerticalAlignment="Center" 
+                                                    <ProgressBar Grid.Column="2"
+                                                                 Value="{Binding SignalQuality, Mode=OneWay}"
+                                                                 Height="4" VerticalAlignment="Center"
                                                                  Margin="6,0,0,0"/>
                                                 </Grid>
                                             </DataTemplate>
@@ -371,10 +347,7 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- ══════════════════════════════════ -->
-                            <!-- TABEL REȚELE — MOD EXPERT         -->
-                            <!-- dBm, Canal, Signal Quality        -->
-                            <!-- ══════════════════════════════════ -->
+                            <!-- Tabel Expert: dBm + canal -->
                             <Border Margin="0,8,0,0">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -388,25 +361,16 @@
                                 </Border.Style>
                                 <DataGrid ItemsSource="{Binding VisibleNetworks}"
                                           SelectedItem="{Binding SelectedNetwork}"
-                                          MaxHeight="220"
-                                          FontFamily="Consolas"
-                                          FontSize="11">
+                                          MaxHeight="200" FontFamily="Consolas" FontSize="11">
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="SSID"
-                                                            Binding="{Binding SSID}"
-                                                            Width="*"/>
-                                        <DataGridTextColumn Header="dBm"
-                                                            Binding="{Binding SignalStrength}"
-                                                            Width="42"/>
-                                        <DataGridTextColumn Header="Ch"
-                                                            Binding="{Binding Channel}"
-                                                            Width="32"/>
-                                        <DataGridTemplateColumn Header="Sig" Width="44">
+                                        <DataGridTextColumn Header="SSID" Binding="{Binding SSID}" Width="*"/>
+                                        <DataGridTextColumn Header="dBm"  Binding="{Binding SignalStrength}" Width="40"/>
+                                        <DataGridTextColumn Header="Ch"   Binding="{Binding Channel}" Width="30"/>
+                                        <DataGridTemplateColumn Header="Sig" Width="42">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <ProgressBar Value="{Binding SignalQuality, Mode=OneWay}" 
-                                                                 Height="4" 
-                                                                 Margin="2,0"/>
+                                                    <ProgressBar Value="{Binding SignalQuality, Mode=OneWay}"
+                                                                 Height="4" Margin="2,0"/>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
@@ -418,11 +382,8 @@
 
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,2"/>
 
-                    <!-- ╔═══════════════════════════════╗ -->
-                    <!-- ║  SECȚIUNEA: ANALIZĂ (EXPERT)  ║ -->
-                    <!-- ╚═══════════════════════════════╝ -->
-                    <Expander 
-                              IsExpanded="False">
+                    <!-- SECȚIUNEA: ANALIZĂ AVANSATĂ (Expert only) -->
+                    <Expander IsExpanded="False">
                         <Expander.Style>
                             <Style TargetType="Expander" BasedOn="{StaticResource SidebarExpander}">
                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -434,11 +395,8 @@
                             </Style>
                         </Expander.Style>
                         <Expander.Header>
-                            <TextBlock Text="ANALIZĂ AVANSATĂ"
-                                       FontSize="11"
-                                       FontFamily="Segoe UI"
-                                       FontWeight="Bold"
-                                       Foreground="{StaticResource TextSecondary}"
+                            <TextBlock Text="ANALIZĂ AVANSATĂ" FontSize="11" FontFamily="Segoe UI"
+                                       FontWeight="Bold" Foreground="{StaticResource TextSecondary}"
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="8,4,8,8">
@@ -454,17 +412,11 @@
 
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,2"/>
 
-                    <!-- ╔═══════════════════════════════╗ -->
-                    <!-- ║  SECȚIUNEA: PROIECT           ║ -->
-                    <!-- ╚═══════════════════════════════╝ -->
-                    <Expander Style="{StaticResource SidebarExpander}"
-                              IsExpanded="True">
+                    <!-- SECȚIUNEA: PROIECT -->
+                    <Expander Style="{StaticResource SidebarExpander}" IsExpanded="True">
                         <Expander.Header>
-                            <TextBlock Text="PROIECT"
-                                       FontSize="11"
-                                       FontFamily="Segoe UI"
-                                       FontWeight="Bold"
-                                       Foreground="{StaticResource TextSecondary}"
+                            <TextBlock Text="PROIECT" FontSize="11" FontFamily="Segoe UI"
+                                       FontWeight="Bold" Foreground="{StaticResource TextSecondary}"
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="8,4,8,8">
@@ -474,16 +426,12 @@
                                     <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0"
-                                        Content="  💾  Salvare"
+                                <Button Grid.Column="0" Content="  💾  Salvare"
                                         Style="{StaticResource AccentButton}"
-                                        Command="{Binding SaveProjectCommand}"
-                                        Padding="8,7"/>
-                                <Button Grid.Column="2"
-                                        Content="  📥  Încărcare"
+                                        Command="{Binding SaveProjectCommand}" Padding="8,7"/>
+                                <Button Grid.Column="2" Content="  📥  Încărcare"
                                         Style="{StaticResource SidebarButton}"
-                                        Command="{Binding LoadProjectCommand}"
-                                        Padding="8,7"/>
+                                        Command="{Binding LoadProjectCommand}" Padding="8,7"/>
                             </Grid>
                             <Button Content="  🗑️  Șterge Toate Punctele"
                                     Style="{StaticResource DangerButton}"
@@ -494,20 +442,15 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- ── Status bar ── -->
-            <Border Grid.Row="3"
-                    Background="{StaticResource Accent}"
-                    Padding="10,4">
-                <TextBlock Text="{Binding StatusMessage}"
-                           FontSize="11"
-                           FontFamily="Segoe UI"
-                           Foreground="White"
-                           TextTrimming="CharacterEllipsis"/>
+            <!-- Status bar -->
+            <Border Grid.Row="3" Background="{StaticResource Accent}" Padding="10,4">
+                <TextBlock Text="{Binding StatusMessage}" FontSize="11" FontFamily="Segoe UI"
+                           Foreground="White" TextTrimming="CharacterEllipsis"/>
             </Border>
         </Grid>
 
         <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- ZONA PRINCIPALĂ — HARTĂ                                     -->
+        <!-- COL 1 — ZONA PRINCIPALĂ: HARTĂ                             -->
         <!-- ═══════════════════════════════════════════════════════════ -->
         <Grid Grid.Column="1" Background="{StaticResource BgBase}">
             <Grid.RowDefinitions>
@@ -519,29 +462,30 @@
             <Border Grid.Row="0"
                     Background="{StaticResource BgSection}"
                     BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,0,0,1"
-                    Padding="14,8">
+                    BorderThickness="0,0,0,1" Padding="14,8">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Hartă Plan de Încadrare"
-                               FontSize="13"
-                               FontFamily="Segoe UI"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimary}"
+                    <TextBlock Text="Hartă Plan de Încadrare" FontSize="13" FontFamily="Segoe UI"
+                               FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"
                                VerticalAlignment="Center"/>
                     <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,0"/>
                     <TextBlock Text="{Binding SurveyPointCount, StringFormat='{}{0} puncte'}"
-                               FontSize="11"
-                               FontFamily="Segoe UI"
-                               Foreground="{StaticResource TextSecondary}"
+                               FontSize="11" FontFamily="Segoe UI"
+                               Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                    <!-- Indicator unealtă activă -->
+                    <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,0"/>
+                    <TextBlock x:Name="ActiveToolLabel"
+                               Text="● Punct Măsurare activ"
+                               FontSize="11" FontFamily="Segoe UI"
+                               Foreground="{StaticResource Accent}"
                                VerticalAlignment="Center"/>
                 </StackPanel>
             </Border>
 
             <!-- Canvas hartă -->
             <ScrollViewer Grid.Row="1"
-                         HorizontalScrollBarVisibility="Auto"
-                         VerticalScrollBarVisibility="Auto"
-                         Background="{StaticResource BgBase}">
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          Background="{StaticResource BgBase}">
                 <Canvas x:Name="MapCanvas"
                         MouseWheel="MapCanvas_MouseWheel"
                         Background="Transparent">
@@ -551,7 +495,7 @@
                           MouseMove="MapContent_MouseMove"
                           MouseLeftButtonUp="MapContent_MouseLeftButtonUp"
                           Background="Transparent"
-                          Cursor="Hand">
+                          Cursor="Cross">
 
                         <Image x:Name="FloorPlanImage"
                                Source="{Binding FloorPlan}"
@@ -562,25 +506,26 @@
                         <Image Source="{Binding HeatmapOverlay}"
                                Width="{Binding ElementName=FloorPlanImage, Path=ActualWidth}"
                                Height="{Binding ElementName=FloorPlanImage, Path=ActualHeight}"
-                               Stretch="Fill"
-                               IsHitTestVisible="False"
-                               Opacity="0.7"/>
+                               Stretch="Fill" IsHitTestVisible="False" Opacity="0.7"/>
 
-                        <Canvas x:Name="SurveyPointsCanvas"
-                                Background="Transparent"/>
+                        <Canvas x:Name="SurveyPointsCanvas" Background="Transparent" Panel.ZIndex="1"/>
+
+                        <!-- Canvas pentru obstacole/echipamente — vizibil întotdeauna pe hartă -->
+                        <Canvas x:Name="ObjectsCanvas"
+                                Background="{x:Null}"
+                                IsHitTestVisible="True"
+                                Panel.ZIndex="5"/>
                     </Grid>
                 </Canvas>
             </ScrollViewer>
 
-            <!-- DRAWING OVERLAY -->
+            <!-- DRAWING OVERLAY (modul schiță) -->
             <Grid x:Name="DrawingOverlay"
                   Grid.Row="1"
                   Visibility="Collapsed"
                   Background="{StaticResource BgBase}">
 
-                <Border Background="{StaticResource GridBrush}"
-                        Opacity="0.4"
-                        Panel.ZIndex="0"/>
+                <Border Background="{StaticResource GridBrush}" Opacity="0.4" Panel.ZIndex="0"/>
 
                 <InkCanvas x:Name="EditorCanvas"
                            Background="Transparent"
@@ -593,190 +538,199 @@
                     </InkCanvas.DefaultDrawingAttributes>
                 </InkCanvas>
 
-                <Canvas x:Name="ObjectsCanvas"
-                        Background="{x:Null}"
-                        IsHitTestVisible="True"
-                        Panel.ZIndex="2"/>
-
                 <Line x:Name="PreviewLine"
-                      Stroke="#007ACC"
-                      StrokeThickness="1.5"
-                      Visibility="Collapsed"
-                      IsHitTestVisible="False"
-                      Panel.ZIndex="100"/>
+                      Stroke="#007ACC" StrokeThickness="1.5"
+                      Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="100"/>
 
-                <!-- Drawing toolbar -->
-                <Border VerticalAlignment="Top"
-                        HorizontalAlignment="Center"
-                        Margin="0,12,0,0"
+                <!-- Hint bottom -->
+                <Border VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                        Margin="0,0,0,12"
                         Background="{StaticResource BgSection}"
-                        CornerRadius="6"
-                        Padding="14,10"
-                        BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="1"
+                        CornerRadius="4" Padding="12,6"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                         Panel.ZIndex="200">
-                    <Border.Effect>
-                        <DropShadowEffect ShadowDepth="4" Opacity="0.6" BlurRadius="12" Color="#000000"/>
-                    </Border.Effect>
-                    <StackPanel>
-                        <!-- Drawing tools row -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="UNELTE"
-                                       FontSize="10"
-                                       FontWeight="Bold"
-                                       FontFamily="Segoe UI"
-                                       Foreground="{StaticResource TextSecondary}"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,12,0"/>
-                            <RadioButton Content="Perete"
-                                         GroupName="Tools"
-                                         IsChecked="True"
-                                         Click="Tool_Wall_Click"
-                                         Foreground="{StaticResource TextPrimary}"
-                                         Margin="0,0,8,0"
-                                         FontFamily="Segoe UI"
-                                         FontSize="12"/>
-                            <RadioButton Content="Detalii"
-                                         GroupName="Tools"
-                                         Click="Tool_Detail_Click"
-                                         Foreground="{StaticResource TextPrimary}"
-                                         Margin="0,0,8,0"
-                                         FontFamily="Segoe UI"
-                                         FontSize="12"/>
-                            <RadioButton Content="Linie Dreaptă"
-                                         GroupName="Tools"
-                                         Click="Tool_Line_Click"
-                                         Foreground="{StaticResource TextPrimary}"
-                                         Margin="0,0,8,0"
-                                         FontFamily="Segoe UI"
-                                         FontSize="12"/>
-                            <RadioButton Content="Radieră"
-                                         GroupName="Tools"
-                                         Click="Tool_Eraser_Click"
-                                         Foreground="{StaticResource TextPrimary}"
-                                         FontFamily="Segoe UI"
-                                         FontSize="12"/>
-                        </StackPanel>
-
-                        <!-- Objects row -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <TextBlock Text="OBIECTE"
-                                       FontSize="10"
-                                       FontWeight="Bold"
-                                       FontFamily="Segoe UI"
-                                       Foreground="{StaticResource TextSecondary}"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,12,0"/>
-                            <Button Content="Router"
-                                    Click="AddRouter_Click"
-                                    Style="{StaticResource AccentButton}"
-                                    Padding="8,4"
-                                    Margin="0,0,4,0"
-                                    FontSize="11"/>
-                            <Button Content="Frigider"
-                                    Click="AddFridge_Click"
-                                    Style="{StaticResource SidebarButton}"
-                                    Padding="8,4"
-                                    Margin="0,0,4,0"
-                                    Background="{StaticResource BgHover}"
-                                    FontSize="11"/>
-                            <Button Content="Microunde"
-                                    Click="AddMicrowave_Click"
-                                    Style="{StaticResource SidebarButton}"
-                                    Padding="8,4"
-                                    Margin="0,0,4,0"
-                                    Background="{StaticResource BgHover}"
-                                    FontSize="11"/>
-                            <Button Content="Zid Beton"
-                                    Click="AddConcreteWall_Click"
-                                    Style="{StaticResource SidebarButton}"
-                                    Padding="8,4"
-                                    Background="{StaticResource BgHover}"
-                                    FontSize="11"/>
-                        </StackPanel>
-
-                        <!-- Action buttons -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="Salvează Schița"
-                                    Click="SaveSketch_Click"
-                                    Style="{StaticResource AccentButton}"
-                                    Padding="12,6"
-                                    Margin="0,0,6,0"
-                                    FontSize="12"/>
-                            <Button Content="Anulează"
-                                    Click="CancelSketch_Click"
-                                    Style="{StaticResource DangerButton}"
-                                    Padding="12,6"
-                                    FontSize="12"/>
-                        </StackPanel>
-                    </StackPanel>
+                    <TextBlock Text="Folosește uneltele din dreapta · Salvează Schița când ești gata"
+                               Foreground="{StaticResource TextSecondary}"
+                               FontSize="11" FontFamily="Segoe UI"/>
                 </Border>
 
-                <!-- Hint text bottom -->
-                <TextBlock Text="Click dreapta pe hartă pentru a plasa un punct de măsurare  ·  ESC pentru a ieși"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Bottom"
-                           Margin="0,0,0,12"
-                           Foreground="{StaticResource TextSecondary}"
-                           FontSize="11"
-                           FontFamily="Segoe UI"
-                           Panel.ZIndex="200"/>
+                <!-- Butoane Salvează / Anulează în Drawing Overlay -->
+                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right"
+                            Orientation="Horizontal"
+                            Margin="0,12,12,0" Panel.ZIndex="200">
+                    <Button Content="  💾  Salvează Schița"
+                            Click="SaveSketch_Click"
+                            Style="{StaticResource AccentButton}"
+                            Padding="12,7" Margin="0,0,6,0" FontSize="12"/>
+                    <Button Content="  ✕  Anulează"
+                            Click="CancelSketch_Click"
+                            Style="{StaticResource DangerButton}"
+                            Padding="12,7" FontSize="12"/>
+                </StackPanel>
             </Grid>
 
-            <!-- Keyboard shortcuts overlay (vizibil când nu e plan încărcat) -->
+            <!-- Keyboard shortcuts (când e plan încărcat) -->
             <Border Grid.Row="1"
                     Background="{StaticResource BgSection}"
                     BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="16,14"
-                    Margin="20"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
+                    BorderThickness="1" CornerRadius="6"
+                    Padding="16,14" Margin="20"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
                     Visibility="{Binding FloorPlan, Converter={StaticResource InvertNullToVisibilityConverter}}">
                 <StackPanel>
-                    <TextBlock Text="COMENZI RAPIDE"
-                               FontWeight="Bold"
-                               FontSize="10"
-                               FontFamily="Segoe UI"
-                               Foreground="{StaticResource TextSecondary}"
+                    <TextBlock Text="COMENZI RAPIDE" FontWeight="Bold" FontSize="10"
+                               FontFamily="Segoe UI" Foreground="{StaticResource TextSecondary}"
                                Margin="0,0,0,8"/>
                     <TextBlock FontSize="11" FontFamily="Segoe UI" Foreground="{StaticResource TextSecondary}" Margin="0,2" Text="Scroll  →  Zoom In/Out"/>
                     <TextBlock FontSize="11" FontFamily="Segoe UI" Foreground="{StaticResource TextSecondary}" Margin="0,2" Text="Drag    →  Mută harta"/>
                     <TextBlock FontSize="11" FontFamily="Segoe UI" Foreground="{StaticResource TextSecondary}" Margin="0,2" Text="R / Shift+R  →  Rotire"/>
                     <TextBlock FontSize="11" FontFamily="Segoe UI" Foreground="{StaticResource TextSecondary}" Margin="0,2" Text="ESC  →  Resetează poziția"/>
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,6"/>
-                    <TextBlock FontSize="11"
-                               FontFamily="Segoe UI"
-                               Foreground="{StaticResource Accent}"
-                               FontWeight="SemiBold"
-                               Text="Click dreapta  →  Plasează punct"/>
+                    <TextBlock FontSize="11" FontFamily="Segoe UI"
+                               Foreground="{StaticResource Accent}" FontWeight="SemiBold"
+                               Text="Click stânga  →  Acțiunea unealtei active"/>
                 </StackPanel>
             </Border>
 
             <!-- Placeholder când nu e niciun plan -->
             <StackPanel Grid.Row="1"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding FloorPlan, Converter={StaticResource NullToVisibilityConverter}}">
-                <TextBlock Text="📋"
-                           FontSize="48"
-                           HorizontalAlignment="Center"
-                           Margin="0,0,0,12"/>
-                <TextBlock Text="Niciun plan încărcat"
-                           FontSize="18"
-                           FontFamily="Segoe UI"
-                           Foreground="{StaticResource TextSecondary}"
-                           HorizontalAlignment="Center"/>
+                <TextBlock Text="📋" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                <TextBlock Text="Niciun plan încărcat" FontSize="18" FontFamily="Segoe UI"
+                           Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
                 <TextBlock Text="Folosește panoul din stânga pentru a încărca un plan sau a crea o schiță nouă."
-                           FontSize="12"
-                           FontFamily="Segoe UI"
+                           FontSize="12" FontFamily="Segoe UI"
                            Foreground="{StaticResource TextDisabled}"
-                           HorizontalAlignment="Center"
-                           Margin="0,6,0,0"
-                           TextAlignment="Center"
-                           MaxWidth="340"/>
+                           HorizontalAlignment="Center" Margin="0,6,0,0"
+                           TextAlignment="Center" MaxWidth="340"/>
             </StackPanel>
         </Grid>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- COL 2 — TOOLBOX DREAPTA (vizibil întotdeauna)              -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <Border Grid.Column="2"
+                Background="{StaticResource BgPanel}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1,0,0,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Toolbox header -->
+                <Border Grid.Row="0"
+                        Background="{StaticResource BgSection}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,0,1" Padding="10,10">
+                    <TextBlock Text="TRUSĂ DE UNELTE"
+                               FontSize="11" FontWeight="Bold" FontFamily="Segoe UI"
+                               Foreground="{StaticResource TextSecondary}"
+                               HorizontalAlignment="Center"/>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="8,4,8,12">
+
+                        <!-- ── ACȚIUNI DE BAZĂ ── -->
+                        <TextBlock Text="ACȚIUNI" Style="{StaticResource ToolboxSectionLabel}"/>
+
+                        <RadioButton x:Name="ToolSurveyPoint"
+                                     GroupName="ActiveTool"
+                                     Content="  📍  Punct Măsurare"
+                                     Style="{StaticResource ToolboxButton}"
+                                     IsChecked="True"
+                                     Checked="ToolSurveyPoint_Checked"/>
+
+                        <RadioButton x:Name="ToolPointer"
+                                     GroupName="ActiveTool"
+                                     Content="  🖱️  Navigare / Mutare"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolPointer_Checked"/>
+
+                        <!-- ── OBSTACOLE ── -->
+                        <TextBlock Text="OBSTACOLE · ATENUARE" Style="{StaticResource ToolboxSectionLabel}"
+                                   Margin="10,12,0,4"/>
+                        <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="10,0,10,6"/>
+
+                        <RadioButton x:Name="ToolWallConcrete"
+                                     GroupName="ActiveTool"
+                                     Content="  🧱  Zid Beton  −12 dBm"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolObstacle_Checked" Tag="ConcreteWall"/>
+
+                        <RadioButton x:Name="ToolWallBrick"
+                                     GroupName="ActiveTool"
+                                     Content="  🧱  Cărămidă  −6 dBm"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolObstacle_Checked" Tag="BrickWall"/>
+
+                        <RadioButton x:Name="ToolDoorWood"
+                                     GroupName="ActiveTool"
+                                     Content="  🚪  Ușă Lemn  −3 dBm"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolObstacle_Checked" Tag="WoodDoor"/>
+
+                        <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="10,6"/>
+
+                        <RadioButton x:Name="ToolFridge"
+                                     GroupName="ActiveTool"
+                                     Content="  ❄️  Frigider  −15 dBm"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolObstacle_Checked" Tag="Fridge"/>
+
+                        <RadioButton x:Name="ToolTV"
+                                     GroupName="ActiveTool"
+                                     Content="  📺  Televizor  −5 dBm"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolObstacle_Checked" Tag="TV"/>
+
+                        <RadioButton x:Name="ToolMicrowave"
+                                     GroupName="ActiveTool"
+                                     Content="  📻  Microunde  −8 dBm"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolObstacle_Checked" Tag="Microwave"/>
+
+                        <!-- ── ECHIPAMENTE ── -->
+                        <TextBlock Text="ECHIPAMENTE REȚEA" Style="{StaticResource ToolboxSectionLabel}"
+                                   Margin="10,12,0,4"/>
+                        <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="10,0,10,6"/>
+
+                        <RadioButton x:Name="ToolRouter"
+                                     GroupName="ActiveTool"
+                                     Content="  📡  Router Virtual"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolObstacle_Checked" Tag="Router"/>
+
+                        <!-- ── SCHIȚĂ (vizibil când DrawingOverlay e activ) ── -->
+                        <TextBlock Text="SCHIȚĂ ARHITECTURALĂ" Style="{StaticResource ToolboxSectionLabel}"
+                                   Margin="10,12,0,4"/>
+                        <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="10,0,10,6"/>
+
+                        <RadioButton x:Name="ToolDrawWall"
+                                     GroupName="ActiveTool"
+                                     Content="  ✏️  Perete (liber)"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolDrawWall_Checked"/>
+
+                        <RadioButton x:Name="ToolDrawLine"
+                                     GroupName="ActiveTool"
+                                     Content="  📐  Linie Dreaptă"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolDrawLine_Checked"/>
+
+                        <RadioButton x:Name="ToolEraser"
+                                     GroupName="ActiveTool"
+                                     Content="  🧹  Radieră"
+                                     Style="{StaticResource ToolboxButton}"
+                                     Checked="ToolEraser_Checked"/>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
     </Grid>
 </Window>
