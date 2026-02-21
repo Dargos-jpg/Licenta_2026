@@ -28,7 +28,8 @@ namespace WifiSignalOptimizer.Services
             int stride = width * 4;
             byte[] pixels = new byte[height * stride];
 
-            const double idwPower = 2.0;
+            // IDW power 3.0 — contururi mai clare, mai puțin efect de "balon"
+            const double idwPower = 3.0;
             var wallSegments = ExtractWallSegments(drawnWalls);
             double ppm = pixelsPerMeter > 0 ? pixelsPerMeter : 20.0;
 
@@ -38,42 +39,39 @@ namespace WifiSignalOptimizer.Services
                 {
                     double numerator = 0.0;
                     double denominator = 0.0;
-                    double closestDist = double.MaxValue;
-                    int closestIdx = 0;
 
-                    // ── Pasul 1: IDW de bază (fără obstacole)
-                    for (int i = 0; i < points.Count; i++)
+                    foreach (var p in points)
                     {
-                        var p = points[i];
-                        double dist = Math.Sqrt(Math.Pow(x - p.X, 2) + Math.Pow(y - p.Y, 2));
-                        if (dist < 1.0) dist = 1.0;
+                        double distPixels = Math.Sqrt(Math.Pow(x - p.X, 2) + Math.Pow(y - p.Y, 2));
+                        if (distPixels < 1.0) distPixels = 1.0;
 
-                        if (dist < closestDist) { closestDist = dist; closestIdx = i; }
+                        double distMeters = distPixels / ppm;
 
-                        double weight = 1.0 / Math.Pow(dist, idwPower);
-                        numerator += weight * p.SignalStrength;
+                        // 1. Raycasting pentru FIECARE punct (nu doar cel mai apropiat)
+                        double wallPenalty = GetObstacleAttenuation(
+                            x, y, p.X, p.Y, obstacles, wallSegments);
+
+                        // 2. Free Space Path Loss agresiv: 2.5 dBm/metru
+                        //    Previne ca verdele să se extindă la infinit în afara casei
+                        double airLoss = distMeters * 2.5;
+
+                        double effectiveSignal = p.SignalStrength - wallPenalty - airLoss;
+
+                        double weight = 1.0 / Math.Pow(distPixels, idwPower);
+                        numerator += weight * effectiveSignal;
                         denominator += weight;
                     }
 
                     double estimatedSignal = denominator > 0 ? numerator / denominator : -100;
 
-                    // ── Pasul 2: Path loss natural în aer (0.5 dBm/m după primii 2m)
-                    double distMeters = closestDist / ppm;
-                    double freeSpaceLoss = distMeters > 2.0 ? (distMeters - 2.0) * 0.5 : 0.0;
-                    estimatedSignal -= freeSpaceLoss;
-
-                    // ── Pasul 3: Raycasting spre cel mai apropiat punct
-                    var closest = points[closestIdx];
-                    estimatedSignal -= GetObstacleAttenuation(
-                        x, y, closest.X, closest.Y, obstacles, wallSegments);
-
-                    // ── Pasul 4: Culoare + fade-out lin
                     Color color = GetColorFromSignal(estimatedSignal);
-                    byte alpha = 200;
-                    if (estimatedSignal < -75)
+
+                    // Fade-out lin la marginile rețelei
+                    byte alpha = 210;
+                    if (estimatedSignal < -80)
                     {
-                        double fadeRatio = Math.Min(1.0, (-75 - estimatedSignal) / 15.0);
-                        alpha = (byte)(200 * (1.0 - fadeRatio));
+                        double fadeRatio = Math.Min(1.0, (-80 - estimatedSignal) / 10.0);
+                        alpha = (byte)(210 * (1.0 - fadeRatio));
                     }
 
                     for (int dy = 0; dy < 2 && y + dy < height; dy++)
@@ -166,24 +164,34 @@ namespace WifiSignalOptimizer.Services
 
         private Color GetColorFromSignal(double signal)
         {
-            if (signal >= -40) return Color.FromRgb(0, 180, 0);
-            if (signal <= -85) return Color.FromRgb(220, 20, 20);
+            // Paletă Wi-Fi Standard (Ekahau/NetSpot style)
+            // -40 (Verde) → -55 (Verde-Gălbui) → -70 (Galben) → -80 (Portocaliu) → -90 (Roșu)
 
-            if (signal > -55)
+            if (signal >= -40) return Color.FromRgb(0, 200, 0);
+            if (signal <= -90) return Color.FromRgb(255, 0, 0);
+
+            if (signal >= -55)
             {
+                // Verde → Verde-Gălbui  (-40 … -55)
                 double t = (signal - (-55.0)) / 15.0;
-                return Color.FromRgb((byte)(t * 50), (byte)(180 + t * 75), 0);
+                return Color.FromRgb((byte)(173 - (int)(173 * t)), (byte)(255 - (int)(55 * t)), 0);
             }
-            else if (signal > -70)
+            if (signal >= -70)
             {
+                // Verde-Gălbui → Galben  (-55 … -70)
                 double t = (signal - (-70.0)) / 15.0;
-                return Color.FromRgb((byte)(255 - t * 205), 255, 0);
+                return Color.FromRgb((byte)(255 - (int)(82 * t)), 255, 0);
             }
-            else
+            if (signal >= -80)
             {
-                double t = (signal - (-85.0)) / 15.0;
-                return Color.FromRgb(255, (byte)(255 * t), 0);
+                // Galben → Portocaliu  (-70 … -80)
+                double t = (signal - (-80.0)) / 10.0;
+                return Color.FromRgb(255, (byte)(165 + (int)(90 * t)), 0);
             }
+
+            // Portocaliu → Roșu  (-80 … -90)
+            double t2 = (signal - (-90.0)) / 10.0;
+            return Color.FromRgb(255, (byte)(165 * t2), 0);
         }
     }
 }
