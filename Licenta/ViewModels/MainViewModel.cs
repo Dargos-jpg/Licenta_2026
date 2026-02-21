@@ -193,7 +193,7 @@ public sealed partial class MainViewModel : ObservableObject
                        $"- {VisibleNetworks.Count} rețele detectate";
     }
 
-    [RelayCommand]
+ [RelayCommand]
     private void AnalyzeNetwork()
     {
         if (SelectedNetwork == null)
@@ -205,55 +205,22 @@ public sealed partial class MainViewModel : ObservableObject
 
         try
         {
-            StatusMessage = "Analizăm spectrul radio folosind Machine Learning (K-Means)...";
+            StatusMessage = "Analizăm rețeaua folosind Machine Learning...";
 
             var doctor = new WifiDoctorService();
+            // Acum returnează noul tău NetworkHealthReport
             var report = doctor.AnalyzeNetwork(SelectedNetwork, VisibleNetworks.ToList().AsReadOnly());
 
-            var sb = new StringBuilder();
-            sb.AppendLine($"🧠 RAPORT DE SĂNĂTATE AI (ML.NET) - {report.TargetSSID}");
-            sb.AppendLine("--------------------------------------------------");
-            sb.AppendLine($"⭐ Scor General: {report.OverallHealthScore:F1} / 100");
-            sb.AppendLine($"📡 Canal Curent: {report.CurrentChannel} | 🏆 Canal Optim Recomandat: {report.BestChannel}");
-            sb.AppendLine("--------------------------------------------------\n");
-
-            sb.AppendLine("📊 ANALIZĂ CANALE (Clustering K-Means):");
-
-            var activeChannels = report.ChannelDetails
-                                       .Where(c => c.InterferenceScore > 0)
-                                       .OrderByDescending(c => c.InterferenceScore)
-                                       .Take(5);
-
-            foreach (var ch in activeChannels)
-            {
-                sb.AppendLine($"   • Canalul {ch.Channel} -> {ch.Status} (Stres: {ch.InterferenceScore:F0} | Vecini pe canal: {ch.CoChannelNeighbors})");
-            }
-
-            sb.AppendLine("\n💡 RECOMANDĂRI:");
-            if (report.ActionableInsights.Count == 0)
-            {
-                sb.AppendLine("   ➤ Totul arată perfect! Nu este nevoie de nicio optimizare.");
-            }
-            else
-            {
-                foreach (var insight in report.ActionableInsights)
-                {
-                    sb.AppendLine($"   ➤ {insight}");
-                }
-            }
-
-            MessageBoxImage icon = report.OverallHealthScore >= 80 ? MessageBoxImage.Information :
-                                   report.OverallHealthScore >= 50 ? MessageBoxImage.Warning :
-                                   MessageBoxImage.Error;
-
             StatusMessage = "Analiză completă.";
-            MessageBox.Show(sb.ToString(), "Doctor Wi-Fi (Sistem AI)", MessageBoxButton.OK, icon);
+            
+            // Deschidem fereastra modernă de raport și îi trimitem datele
+            var doctorWindow = new Views.DoctorReportWindow(report);
+            doctorWindow.Owner = Application.Current.MainWindow; 
+            doctorWindow.ShowDialog();
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"A apărut o eroare la rularea modelului ML.NET: {ex.Message}",
-                            "Eroare AI", MessageBoxButton.OK, MessageBoxImage.Error);
-            StatusMessage = "Eroare la analiza AI.";
+            MessageBox.Show($"Eroare AI: {ex.Message}", "Eroare", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
