@@ -448,6 +448,15 @@ public partial class MainWindow : Window
     private void ClearVisualSurveyPoints()
     {
         SurveyPointsCanvas.Children.Clear();
+
+        // Ștergem și "fantoma" steluței vechi de pe hartă
+        var oldIndicators = ObjectsCanvas.Children
+            .OfType<FrameworkElement>()
+            .Where(e => e.Tag as string == "OptimalRouter")
+            .ToList();
+
+        foreach (var old in oldIndicators)
+            ObjectsCanvas.Children.Remove(old);
     }
 
     #endregion
