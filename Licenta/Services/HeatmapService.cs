@@ -5,19 +5,20 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using WifiSignalOptimizer.Models;
+using WifiSignalOptimizer.Views;
 
 namespace WifiSignalOptimizer.Services
 {
     public class HeatmapService
     {
         /// <summary>
-        /// Generează un heatmap WiFi folosind IDW cu raycasting real pe obstacole (emoji + pereți desenați).
-        /// Nu folosește pathLoss artificial — semnalul se extinde fluid și e tăiat doar de obstacole.
+        /// Generează heatmap WiFi cu IDW + path loss + raycasting pe obstacole și pereți desenați.
+        /// Acceptă HeatmapPoint (record simplu X/Y/SignalStrength) filtrat per SSID.
         /// </summary>
         public BitmapSource GenerateHeatmap(
-            List<SurveyPoint> points,
+            List<HeatmapPoint> points,
             List<MapElement> obstacles,
-            StrokeCollection drawnWalls,   // Liniile din EditorCanvas (pereții schiței)
+            StrokeCollection drawnWalls,
             int width, int height,
             double pixelsPerMeter)
         {
@@ -27,11 +28,9 @@ namespace WifiSignalOptimizer.Services
             int stride = width * 4;
             byte[] pixels = new byte[height * stride];
 
-            // IDW power 2.5 — echilibru bun între influență locală și blending global
-            const double power = 2.5;
-
-            // Extragem segmentele de linie din schiță o singură dată (performanță)
+            const double idwPower = 2.0;
             var wallSegments = ExtractWallSegments(drawnWalls);
+            double ppm = pixelsPerMeter > 0 ? pixelsPerMeter : 20.0;
 
             for (int y = 0; y < height; y += 2)
             {
@@ -39,47 +38,45 @@ namespace WifiSignalOptimizer.Services
                 {
                     double numerator = 0.0;
                     double denominator = 0.0;
-                    double closestSignal = -100;
-                    bool exactHit = false;
+                    double closestDist = double.MaxValue;
+                    int closestIdx = 0;
 
-                    foreach (var p in points)
+                    // ── Pasul 1: IDW de bază (fără obstacole)
+                    for (int i = 0; i < points.Count; i++)
                     {
-                        double dist = Math.Sqrt(
-                            Math.Pow(x - p.X, 2) +
-                            Math.Pow(y - p.Y, 2));
+                        var p = points[i];
+                        double dist = Math.Sqrt(Math.Pow(x - p.X, 2) + Math.Pow(y - p.Y, 2));
+                        if (dist < 1.0) dist = 1.0;
 
-                        if (dist < 1.0)
-                        {
-                            closestSignal = p.SignalStrength;
-                            exactHit = true;
-                            break;
-                        }
+                        if (dist < closestDist) { closestDist = dist; closestIdx = i; }
 
-                        // Fără pathLoss artificial — semnalul e tăiat DOAR de obstacole reale
-                        double obstaclePenalty = GetObstacleAttenuation(
-                            x, y, p.X, p.Y, obstacles, wallSegments);
-
-                        double attenuatedSignal = p.SignalStrength - obstaclePenalty;
-
-                        double weight = 1.0 / Math.Pow(dist, power);
-                        numerator += weight * attenuatedSignal;
+                        double weight = 1.0 / Math.Pow(dist, idwPower);
+                        numerator += weight * p.SignalStrength;
                         denominator += weight;
                     }
 
-                    double estimatedSignal = exactHit
-                        ? closestSignal
-                        : (denominator > 0 ? numerator / denominator : -100);
+                    double estimatedSignal = denominator > 0 ? numerator / denominator : -100;
 
+                    // ── Pasul 2: Path loss natural în aer (0.5 dBm/m după primii 2m)
+                    double distMeters = closestDist / ppm;
+                    double freeSpaceLoss = distMeters > 2.0 ? (distMeters - 2.0) * 0.5 : 0.0;
+                    estimatedSignal -= freeSpaceLoss;
+
+                    // ── Pasul 3: Raycasting spre cel mai apropiat punct
+                    var closest = points[closestIdx];
+                    estimatedSignal -= GetObstacleAttenuation(
+                        x, y, closest.X, closest.Y, obstacles, wallSegments);
+
+                    // ── Pasul 4: Culoare + fade-out lin
                     Color color = GetColorFromSignal(estimatedSignal);
-
-                    // Fade-out gradual la semnal foarte slab
-                    byte alpha = 180;
-                    if (estimatedSignal < -85)
-                        alpha = (byte)Math.Max(0, 180 - ((-85 - estimatedSignal) * 15));
-
-                    // Scriem 2x2 pixeli
-                    for (int dy = 0; dy < 2 && y + dy < height; dy++)
+                    byte alpha = 200;
+                    if (estimatedSignal < -75)
                     {
+                        double fadeRatio = Math.Min(1.0, (-75 - estimatedSignal) / 15.0);
+                        alpha = (byte)(200 * (1.0 - fadeRatio));
+                    }
+
+                    for (int dy = 0; dy < 2 && y + dy < height; dy++)
                         for (int dx = 0; dx < 2 && x + dx < width; dx++)
                         {
                             int idx = ((y + dy) * stride) + ((x + dx) * 4);
@@ -88,141 +85,105 @@ namespace WifiSignalOptimizer.Services
                             pixels[idx + 2] = color.R;
                             pixels[idx + 3] = alpha;
                         }
-                    }
                 }
             }
 
             var bitmap = BitmapSource.Create(
-                width, height, 96, 96,
-                PixelFormats.Bgra32, null, pixels, stride);
+                width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
             bitmap.Freeze();
             return bitmap;
         }
 
-        // ══════════════════════════════════════════════════════
-        // DETECȚIE OBSTACOLE — Raycasting pe emoji + linii
-        // ══════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════
+        // RAYCASTING
+        // ══════════════════════════════════════════════════
 
         private double GetObstacleAttenuation(
-            double x1, double y1,
-            double x2, double y2,
+            double x1, double y1, double x2, double y2,
             List<MapElement> obstacles,
             List<(double X1, double Y1, double X2, double Y2)> wallSegments)
         {
-            double totalPenalty = 0;
+            double total = 0;
 
-            // 1. Raycasting prin emoji-uri (cerc de 20px rază)
             if (obstacles != null)
             {
-                const double obstacleRadius = 20.0;
+                const double r = 20.0;
                 foreach (var obs in obstacles)
-                {
-                    double centerX = obs.X + obstacleRadius;
-                    double centerY = obs.Y + obstacleRadius;
-                    if (LineIntersectsCircle(x1, y1, x2, y2, centerX, centerY, obstacleRadius))
-                        totalPenalty += obs.SignalPenalty;
-                }
+                    if (LineIntersectsCircle(x1, y1, x2, y2, obs.X + r, obs.Y + r, r))
+                        total += obs.SignalPenalty;
             }
 
-            // 2. Raycasting prin pereții desenați (linii geometrice)
             if (wallSegments != null)
-            {
-                foreach (var wall in wallSegments)
-                {
-                    if (LinesIntersect(x1, y1, x2, y2, wall.X1, wall.Y1, wall.X2, wall.Y2))
-                        totalPenalty += 10.0; // −10 dBm per perete desenat tăiat
-                }
-            }
+                foreach (var w in wallSegments)
+                    if (LinesIntersect(x1, y1, x2, y2, w.X1, w.Y1, w.X2, w.Y2))
+                        total += 10.0;
 
-            return totalPenalty;
+            return total;
         }
-
-        // ══════════════════════════════════════════════════════
-        // EXTRAGERE SEGMENTE DIN StrokeCollection
-        // ══════════════════════════════════════════════════════
 
         private List<(double X1, double Y1, double X2, double Y2)> ExtractWallSegments(
             StrokeCollection strokes)
         {
-            var segments = new List<(double, double, double, double)>();
-            if (strokes == null) return segments;
-
+            var list = new List<(double, double, double, double)>();
+            if (strokes == null) return list;
             foreach (var stroke in strokes)
             {
-                StylusPointCollection pts = stroke.StylusPoints;
+                var pts = stroke.StylusPoints;
                 for (int i = 0; i < pts.Count - 1; i++)
-                {
-                    segments.Add((pts[i].X, pts[i].Y, pts[i + 1].X, pts[i + 1].Y));
-                }
+                    list.Add((pts[i].X, pts[i].Y, pts[i + 1].X, pts[i + 1].Y));
             }
-
-            return segments;
+            return list;
         }
 
-        // ══════════════════════════════════════════════════════
-        // ALGORITMI GEOMETRICI
-        // ══════════════════════════════════════════════════════
-
-        /// <summary>Intersecție Linie–Linie (Cramer)</summary>
         private bool LinesIntersect(
             double x1, double y1, double x2, double y2,
             double x3, double y3, double x4, double y4)
         {
-            double denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-            if (denom == 0) return false; // paralele
-
-            double t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
-            double u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
-
+            double d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+            if (d == 0) return false;
+            double t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d;
+            double u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / d;
             return t > 0 && t < 1 && u > 0 && u < 1;
         }
 
-        /// <summary>Intersecție Linie–Cerc prin proiecție ortogonală</summary>
         private bool LineIntersectsCircle(
             double x1, double y1, double x2, double y2,
             double cx, double cy, double r)
         {
-            double dx = x2 - x1;
-            double dy = y2 - y1;
+            double dx = x2 - x1, dy = y2 - y1;
             double lenSq = dx * dx + dy * dy;
-
             if (lenSq == 0)
-                return (Math.Pow(cx - x1, 2) + Math.Pow(cy - y1, 2)) <= r * r;
-
+                return Math.Pow(cx - x1, 2) + Math.Pow(cy - y1, 2) <= r * r;
             double t = Math.Max(0, Math.Min(1,
                 ((cx - x1) * dx + (cy - y1) * dy) / lenSq));
-
-            double closestX = x1 + t * dx;
-            double closestY = y1 + t * dy;
-
-            return (Math.Pow(cx - closestX, 2) + Math.Pow(cy - closestY, 2)) <= r * r;
+            return Math.Pow(cx - (x1 + t * dx), 2) +
+                   Math.Pow(cy - (y1 + t * dy), 2) <= r * r;
         }
 
-        // ══════════════════════════════════════════════════════
-        // GRADIENT: Roșu → Galben → Verde
-        // -85 dBm (slab) → -45 dBm (excelent)
-        // ══════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════
+        // GRADIENT PRO: Verde smarald → Lime → Galben → Roșu
+        // ══════════════════════════════════════════════════
 
         private Color GetColorFromSignal(double signal)
         {
-            if (signal <= -85) return Colors.Red;
-            if (signal >= -45) return Colors.Lime;
+            if (signal >= -40) return Color.FromRgb(0, 180, 0);
+            if (signal <= -85) return Color.FromRgb(220, 20, 20);
 
-            double t = (signal - (-85.0)) / (-45.0 - (-85.0));
-
-            byte r, g, b = 0;
-            if (t < 0.5)
+            if (signal > -55)
             {
-                r = 255;
-                g = (byte)(255 * (t * 2.0));
+                double t = (signal - (-55.0)) / 15.0;
+                return Color.FromRgb((byte)(t * 50), (byte)(180 + t * 75), 0);
+            }
+            else if (signal > -70)
+            {
+                double t = (signal - (-70.0)) / 15.0;
+                return Color.FromRgb((byte)(255 - t * 205), 255, 0);
             }
             else
             {
-                r = (byte)(255 * (1.0 - (t - 0.5) * 2.0));
-                g = 255;
+                double t = (signal - (-85.0)) / 15.0;
+                return Color.FromRgb(255, (byte)(255 * t), 0);
             }
-
-            return Color.FromRgb(r, g, b);
         }
     }
 }

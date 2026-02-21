@@ -98,17 +98,22 @@ public partial class MainWindow : Window
         {
             try
             {
-                var points = _viewModel.GetSurveyPoints().ToList();
+                var allPoints = _viewModel.GetSurveyPoints();
                 var obstacles = _viewModel.GetMapElements().ToList();
-
-                // Liniile desenate de utilizator (pereți din schiță)
-                // Dacă nu e în modul schiță, EditorCanvas.Strokes poate fi goală — e OK
                 var strokes = EditorCanvas.Strokes;
+
+                // Filtrăm punctele după SSID-ul selectat
+                // HeatmapPoint e un record simplu (X, Y, SignalStrength) — evităm limitările init-only
+                var filteredPoints = allPoints.Select(p =>
+                {
+                    var net = p.DetectedNetworks.FirstOrDefault(n => n.SSID == m.TargetSSID);
+                    return new HeatmapPoint(p.X, p.Y, net?.SignalStrength ?? -100);
+                }).ToList();
 
                 var heatmap = await Task.Run(() =>
                 {
                     var service = new HeatmapService();
-                    return service.GenerateHeatmap(points, obstacles, strokes, m.Width, m.Height, m.Scale);
+                    return service.GenerateHeatmap(filteredPoints, obstacles, strokes, m.Width, m.Height, m.Scale);
                 });
 
                 if (heatmap != null && heatmap.CanFreeze)
@@ -121,7 +126,8 @@ public partial class MainWindow : Window
                     : "necalibrat";
 
                 _viewModel.StatusMessage =
-                    $"Heatmap generat din {points.Count} pct., {obstacles.Count} obstacole ({calibrareInfo}).";
+                    $"Heatmap '{m.TargetSSID}' generat din {filteredPoints.Count} pct., " +
+                    $"{obstacles.Count} obstacole ({calibrareInfo}).";
             }
             catch (Exception ex)
             {
@@ -1126,3 +1132,9 @@ public partial class MainWindow : Window
         base.OnClosed(e);
     }
 }
+
+/// <summary>
+/// Punct simplu pentru HeatmapService — X, Y și semnalul filtrat per rețea.
+/// Separat de SurveyPoint (care e immutable/init-only) pentru a permite filtrarea per SSID.
+/// </summary>
+public sealed record HeatmapPoint(double X, double Y, int SignalStrength);

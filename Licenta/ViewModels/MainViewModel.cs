@@ -110,6 +110,9 @@ public sealed partial class MainViewModel : ObservableObject
             IsScanning = true;
             StatusMessage = "Se scanează rețelele WiFi...";
 
+            // Salvăm rețeaua curentă ca să nu dispară selecția la refresh
+            string? savedSsid = SelectedNetwork?.SSID;
+
             var networks = await _wifiScanner.ScanNetworksAsync();
 
             if (cancellationToken.IsCancellationRequested)
@@ -117,9 +120,11 @@ public sealed partial class MainViewModel : ObservableObject
 
             VisibleNetworks.Clear();
             foreach (var network in networks)
-            {
                 VisibleNetworks.Add(network);
-            }
+
+            // Re-selectăm rețeaua după refresh
+            if (!string.IsNullOrEmpty(savedSsid))
+                SelectedNetwork = VisibleNetworks.FirstOrDefault(n => n.SSID == savedSsid);
 
             StatusMessage = $"Scanare completă. {networks.Count} rețele găsite.";
         }
@@ -290,15 +295,22 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        StatusMessage = "Se generează heatmap-ul...";
+        if (SelectedNetwork == null)
+        {
+            MessageBox.Show("Te rog selectează o rețea din listă pentru a-i vedea acoperirea!",
+                            "Atenție", MessageBoxButton.OK, MessageBoxImage.Warning);
+            StatusMessage = "Generare anulată. Nicio rețea selectată.";
+            return;
+        }
+
+        StatusMessage = $"Se generează heatmap-ul pentru {SelectedNetwork.SSID}...";
 
         int width = FloorPlan.PixelWidth;
         int height = FloorPlan.PixelHeight;
         double scara = IsCalibrated ? PixelsPerMeter : 50.0;
 
-        // Cerem MainWindow-ului să extragă liniile desenate și să ruleze serviciul
         WeakReferenceMessenger.Default.Send(
-            new RequestHeatmapGenerationMessage(width, height, scara));
+            new RequestHeatmapGenerationMessage(width, height, scara, SelectedNetwork.SSID));
     }
 
     // Butonul "Salvare" din panou trimite un mesaj către MainWindow
@@ -504,9 +516,10 @@ public sealed class RequestHeatmapGenerationMessage
     public int Width { get; }
     public int Height { get; }
     public double Scale { get; }
+    public string TargetSSID { get; }
 
-    public RequestHeatmapGenerationMessage(int w, int h, double scale)
+    public RequestHeatmapGenerationMessage(int w, int h, double scale, string targetSsid)
     {
-        Width = w; Height = h; Scale = scale;
+        Width = w; Height = h; Scale = scale; TargetSSID = targetSsid;
     }
 }
