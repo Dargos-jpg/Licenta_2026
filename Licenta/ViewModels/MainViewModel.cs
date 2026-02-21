@@ -420,7 +420,7 @@ public sealed partial class MainViewModel : ObservableObject
     public IReadOnlyList<SurveyPoint> GetSurveyPoints() => _surveyPoints.AsReadOnly();
 
     [RelayCommand]
-    private async Task CalculateOptimalRouterAsync()
+    private void CalculateOptimalRouter() // ✅ Nu mai e Async
     {
         if (FloorPlan == null)
         {
@@ -429,25 +429,21 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        StatusMessage = "Calculăm poziția optimă folosind algoritmul Min-Max...";
+        if (_surveyPoints.Count < 2)
+        {
+            MessageBox.Show("Avem nevoie de cel puțin 2 puncte pentru a delimita zona casei.",
+                "Atenție", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
 
-        var elements = _mapElements.ToList();
-        var surveys = _surveyPoints.ToList();
+        StatusMessage = "Calculăm poziția optimă folosind AI Multi-Criteria...";
+
         double scara = IsCalibrated ? PixelsPerMeter : 50.0;
         double width = FloorPlan.PixelWidth;
         double height = FloorPlan.PixelHeight;
 
-        // Rulăm algoritmul Min-Max pe background thread (poate dura 1-2 sec)
-        Point optimalPosition = await Task.Run(() =>
-        {
-            var optimizer = new RouterOptimizationService();
-            return optimizer.FindOptimalPosition(elements, surveys, width, height, scara);
-        });
-
-        StatusMessage = $"✅ Poziție optimă: X={optimalPosition.X:F0}, Y={optimalPosition.Y:F0} " +
-                        $"— semnal uniform garantat în toată casa.";
-
-        WeakReferenceMessenger.Default.Send(new ShowOptimalRouterMessage(optimalPosition));
+        // ✅ Trimitem mesajul către MainWindow să preia liniile și să ruleze AI-ul
+        WeakReferenceMessenger.Default.Send(new RequestOptimalRouterMessage(width, height, scara));
     }
 
     [RelayCommand]
@@ -497,18 +493,21 @@ public sealed class RestoreSketchMessage
     }
 }
 
-/// <summary>
-/// ViewModel trimite acest mesaj când vrea să salveze.
-/// MainWindow îl primește, colectează datele schiței și apelează SaveProjectWithSketch.
-/// </summary>
 public sealed class RequestSaveWithSketchMessage
 {
 }
 
-public sealed class ShowOptimalRouterMessage
+// ✅ NOU: Mesaj pentru calcul poziție optimă router
+public sealed class RequestOptimalRouterMessage
 {
-    public Point OptimalPoint { get; }
-    public ShowOptimalRouterMessage(Point point) { OptimalPoint = point; }
+    public double Width { get; }
+    public double Height { get; }
+    public double Scale { get; }
+
+    public RequestOptimalRouterMessage(double w, double h, double scale)
+    {
+        Width = w; Height = h; Scale = scale;
+    }
 }
 
 public sealed class RequestHeatmapGenerationMessage

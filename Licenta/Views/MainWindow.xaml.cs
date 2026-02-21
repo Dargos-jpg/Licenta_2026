@@ -65,32 +65,58 @@ public partial class MainWindow : Window
             RedrawSurveyPoints(m.SurveyPoints);
         });
 
-        // ✅ NOU: Register for redraw map elements (obstacole) message
+        // Register for redraw map elements (obstacole) message
         WeakReferenceMessenger.Default.Register<RedrawMapElementsMessage>(this, (r, m) =>
         {
             RedrawMapElements(m.MapElements);
         });
 
-        // ✅ NOU: Register pentru restaurarea schiței vectoriale după load proiect
+        // Register pentru restaurarea schiței vectoriale după load proiect
         WeakReferenceMessenger.Default.Register<RestoreSketchMessage>(this, (r, m) =>
         {
             EditorCanvas.Strokes.Clear();
             foreach (var stroke in m.Strokes)
                 EditorCanvas.Strokes.Add(stroke);
 
-            // Afișăm panoul de desenare ca să fie vizibilă schița restaurată
             DrawingOverlay.Visibility = Visibility.Visible;
         });
 
-        // ✅ NOU: Butonul "Salvare" din panou → colectăm schița și salvăm tot
+        // Butonul "Salvare" din panou → colectăm schița și salvăm tot
         WeakReferenceMessenger.Default.Register<RequestSaveWithSketchMessage>(this, (r, m) =>
         {
             CollectSketchAndSave();
         });
 
-        WeakReferenceMessenger.Default.Register<ShowOptimalRouterMessage>(this, (r, m) =>
+        // ✅ NOU: Calcul AI Router cu suport pereți desenați
+        WeakReferenceMessenger.Default.Register<RequestOptimalRouterMessage>(this, async (r, m) =>
         {
-            DrawOptimalRouterIndicator(m.OptimalPoint);
+            try
+            {
+                var elements = _viewModel.GetMapElements().ToList();
+                var surveys = _viewModel.GetSurveyPoints().ToList();
+
+                // ✅ AICI ESTE SECRETUL: Luăm pereții desenați direct din interfață!
+                var strokes = EditorCanvas.Strokes;
+
+                // Rulăm matematica grea pe un thread separat ca să nu blocăm interfața
+                Point optimalPosition = await Task.Run(() =>
+                {
+                    var optimizer = new RouterOptimizationService();
+                    return optimizer.FindOptimalPosition(
+                        elements, surveys, strokes, m.Width, m.Height, m.Scale);
+                });
+
+                _viewModel.StatusMessage = $"✅ Poziție optimă: X={optimalPosition.X:F0}, Y={optimalPosition.Y:F0} — semnal uniform garantat.";
+
+                // Apelăm funcția existentă care pune steluța ⭐ pe ecran
+                DrawOptimalRouterIndicator(optimalPosition);
+            }
+            catch (Exception ex)
+            {
+                _viewModel.StatusMessage = $"Eroare calcul AI: {ex.Message}";
+                MessageBox.Show($"Eroare la calculul poziției optime:\n{ex.Message}",
+                    "Eroare AI", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         });
 
         // Heatmap PRO: extragem liniile desenate din EditorCanvas și le trimitem la serviciu
@@ -102,8 +128,6 @@ public partial class MainWindow : Window
                 var obstacles = _viewModel.GetMapElements().ToList();
                 var strokes = EditorCanvas.Strokes;
 
-                // Filtrăm punctele după SSID-ul selectat
-                // HeatmapPoint e un record simplu (X, Y, SignalStrength) — evităm limitările init-only
                 var filteredPoints = allPoints.Select(p =>
                 {
                     var net = p.DetectedNetworks.FirstOrDefault(n => n.SSID == m.TargetSSID);
@@ -1127,7 +1151,7 @@ public partial class MainWindow : Window
         WeakReferenceMessenger.Default.Unregister<RedrawMapElementsMessage>(this);
         WeakReferenceMessenger.Default.Unregister<RestoreSketchMessage>(this);
         WeakReferenceMessenger.Default.Unregister<RequestSaveWithSketchMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<ShowOptimalRouterMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<RequestOptimalRouterMessage>(this); // ✅ NOU
         WeakReferenceMessenger.Default.Unregister<RequestHeatmapGenerationMessage>(this);
         base.OnClosed(e);
     }
