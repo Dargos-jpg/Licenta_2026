@@ -157,7 +157,7 @@ public class WifiDoctorService : IWifiDoctorService
             report.ActionableInsights.Add($"Canalul tău actual ({myNet.Channel}) a fost clasificat de AI ca fiind '{currentCh.Status}'. Ai {currentCh.CoChannelNeighbors} vecini direcți.");
 
         if (report.CurrentChannel != report.BestChannel)
-            report.ActionableInsights.Add($"Optimizare: Mută routerul pe Canalul {report.BestChannel}. Este cel mai liber canal (aprobat de ML).");
+            report.ActionableInsights.Add($"Optimizare: Mută routerul pe Canalul {report.BestChannel}. Este cel mai liber canal.");
         else
             report.ActionableInsights.Add("Ești deja pe cel mai bun canal disponibil. Configurația radio este optimă.");
     }

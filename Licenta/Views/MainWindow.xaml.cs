@@ -483,7 +483,12 @@ public partial class MainWindow : Window
         _isLineToolActive = false;
         _isCalibrating = false;
         EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
-        _viewModel.StatusMessage = "Mod Desenare activat. Desenați planul apartamentului.";
+
+        // Auto-calibrare bazată pe grilă: 1 pătrățel (20px) = 1 metru
+        _viewModel.PixelsPerMeter = GRID_SIZE;
+        _viewModel.IsCalibrated = true;
+
+        _viewModel.StatusMessage = "Mod Desenare: 1 pătrățel = 1 metru · Scara setată automat la 20 px/m.";
     }
 
     private void StartCalibration_Click(object sender, RoutedEventArgs e)
@@ -764,42 +769,8 @@ public partial class MainWindow : Window
             DrawingAttributes = EditorCanvas.DefaultDrawingAttributes.Clone()
         };
         EditorCanvas.Strokes.Add(stroke);
-
-        // ✅ MODIFICAT: Propunem calibrarea după FIECARE linie dreaptă (≥ 50px)
-        double pixelDistance = Math.Sqrt(
-            Math.Pow(endPoint.X - _startPoint.X, 2) +
-            Math.Pow(endPoint.Y - _startPoint.Y, 2));
-
-        if (pixelDistance >= 50)
-        {
-            // Mesaj diferit dacă e deja calibrat (permite recalibrare cu linia curentă)
-            string mesaj = _viewModel.IsCalibrated
-                ? $"Vrei să recalibrezi scara folosind acest perete?\n\n" +
-                  $"Scară curentă: {_viewModel.PixelsPerMeter:F1} px/m\n" +
-                  $"Lungime linie: {pixelDistance:F0} px"
-                : "Vrei să calibrezi scara hărții folosind acest perete?\n\n" +
-                  "Dacă știi lungimea reală a acestui perete, poți face calibrarea acum.";
-
-            var result = MessageBox.Show(
-                mesaj,
-                "Calibrare Rapidă",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                var dialog = new CalibrationDialog();
-                dialog.Owner = this;
-
-                if (dialog.ShowDialog() == true)
-                {
-                    _viewModel.PixelsPerMeter = pixelDistance / dialog.ResultMeters;
-                    _viewModel.IsCalibrated = true;
-                    _viewModel.StatusMessage = $"✅ Scară setată: {_viewModel.PixelsPerMeter:F1} px/m " +
-                                               $"({pixelDistance:F0} px = {dialog.ResultMeters} m)";
-                }
-            }
-        }
+        // Scara e setată automat la intrarea în modul desen (20 px/m = 1 pătrățel)
+        // Nu mai deranjăm utilizatorul cu pop-up de calibrare la fiecare linie.
     }
 
     private void SaveSketch_Click(object sender, RoutedEventArgs e)

@@ -471,13 +471,23 @@
                     <TextBlock Text="{Binding SurveyPointCount, StringFormat='{}{0} puncte'}"
                                FontSize="11" FontFamily="Segoe UI"
                                Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
-                    <!-- Indicator unealtă activă -->
                     <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,0"/>
                     <TextBlock x:Name="ActiveToolLabel"
                                Text="● Punct Măsurare activ"
                                FontSize="11" FontFamily="Segoe UI"
                                Foreground="{StaticResource Accent}"
                                VerticalAlignment="Center"/>
+                    <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,0"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="📶 Rețea analizată: "
+                                   FontSize="11" FontFamily="Segoe UI"
+                                   Foreground="{StaticResource TextSecondary}"/>
+                        <TextBlock Text="{Binding SelectedNetwork.SSID,
+                                           TargetNullValue='Nicio rețea selectată',
+                                           FallbackValue='Nicio rețea selectată'}"
+                                   FontSize="11" FontFamily="Segoe UI" FontWeight="Bold"
+                                   Foreground="{StaticResource Accent}"/>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
