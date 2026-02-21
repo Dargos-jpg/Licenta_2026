@@ -276,7 +276,7 @@ public sealed partial class MainViewModel : ObservableObject
     public IReadOnlyList<MapElement> GetMapElements() => _mapElements.AsReadOnly();
 
     [RelayCommand]
-    private async Task GenerateHeatmapAsync()
+    private void GenerateHeatmap()
     {
         if (_surveyPoints.Count < 2)
         {
@@ -290,44 +290,15 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        try
-        {
-            StatusMessage = "Se generează heatmap-ul...";
+        StatusMessage = "Se generează heatmap-ul...";
 
-            int width = FloorPlan.PixelWidth;
-            int height = FloorPlan.PixelHeight;
+        int width = FloorPlan.PixelWidth;
+        int height = FloorPlan.PixelHeight;
+        double scara = IsCalibrated ? PixelsPerMeter : 50.0;
 
-            // Scara de calibrare (50 e default dacă n-a calibrat manual)
-            double scara = IsCalibrated ? PixelsPerMeter : 50.0;
-
-            // Obstacolele înregistrate pe hartă (ziduri, frigidere, etc.)
-            var elementsList = _mapElements.ToList();
-
-            var heatmap = await Task.Run(() =>
-            {
-                var service = new HeatmapService();
-                // Trimitem scara și obstacolele pentru simulare fizică corectă
-                return service.GenerateHeatmap(_surveyPoints, elementsList, width, height, scara);
-            });
-
-            if (heatmap != null && heatmap.CanFreeze)
-            {
-                heatmap.Freeze();
-            }
-
-            HeatmapOverlay = heatmap;
-
-            string calibrareInfo = IsCalibrated
-                ? $"(calibrat: {PixelsPerMeter:F1} px/m)"
-                : "(necalibrat, folosind 50 px/m implicit)";
-
-            StatusMessage = $"Heatmap generat din {_surveyPoints.Count} puncte, " +
-                            $"{elementsList.Count} obstacole {calibrareInfo}.";
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"Eroare la generarea heatmap-ului: {ex.Message}";
-        }
+        // Cerem MainWindow-ului să extragă liniile desenate și să ruleze serviciul
+        WeakReferenceMessenger.Default.Send(
+            new RequestHeatmapGenerationMessage(width, height, scara));
     }
 
     // Butonul "Salvare" din panou trimite un mesaj către MainWindow
@@ -421,7 +392,7 @@ public sealed partial class MainViewModel : ObservableObject
                 }
 
                 if (FloorPlan != null && _surveyPoints.Count >= 2)
-                    await GenerateHeatmapAsync();
+                    GenerateHeatmap();
             }
             else
             {
@@ -526,4 +497,16 @@ public sealed class ShowOptimalRouterMessage
 {
     public Point OptimalPoint { get; }
     public ShowOptimalRouterMessage(Point point) { OptimalPoint = point; }
+}
+
+public sealed class RequestHeatmapGenerationMessage
+{
+    public int Width { get; }
+    public int Height { get; }
+    public double Scale { get; }
+
+    public RequestHeatmapGenerationMessage(int w, int h, double scale)
+    {
+        Width = w; Height = h; Scale = scale;
+    }
 }

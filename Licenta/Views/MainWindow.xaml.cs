@@ -88,10 +88,45 @@ public partial class MainWindow : Window
             CollectSketchAndSave();
         });
 
-        // ✅ NOU: Afișăm indicatorul vizual pentru poziția optimă a routerului
         WeakReferenceMessenger.Default.Register<ShowOptimalRouterMessage>(this, (r, m) =>
         {
             DrawOptimalRouterIndicator(m.OptimalPoint);
+        });
+
+        // Heatmap PRO: extragem liniile desenate din EditorCanvas și le trimitem la serviciu
+        WeakReferenceMessenger.Default.Register<RequestHeatmapGenerationMessage>(this, async (r, m) =>
+        {
+            try
+            {
+                var points = _viewModel.GetSurveyPoints().ToList();
+                var obstacles = _viewModel.GetMapElements().ToList();
+
+                // Liniile desenate de utilizator (pereți din schiță)
+                // Dacă nu e în modul schiță, EditorCanvas.Strokes poate fi goală — e OK
+                var strokes = EditorCanvas.Strokes;
+
+                var heatmap = await Task.Run(() =>
+                {
+                    var service = new HeatmapService();
+                    return service.GenerateHeatmap(points, obstacles, strokes, m.Width, m.Height, m.Scale);
+                });
+
+                if (heatmap != null && heatmap.CanFreeze)
+                    heatmap.Freeze();
+
+                _viewModel.HeatmapOverlay = heatmap;
+
+                string calibrareInfo = _viewModel.IsCalibrated
+                    ? $"calibrat: {_viewModel.PixelsPerMeter:F1} px/m"
+                    : "necalibrat";
+
+                _viewModel.StatusMessage =
+                    $"Heatmap generat din {points.Count} pct., {obstacles.Count} obstacole ({calibrareInfo}).";
+            }
+            catch (Exception ex)
+            {
+                _viewModel.StatusMessage = $"Eroare heatmap: {ex.Message}";
+            }
         });
 
         InitializeImageTransforms();
@@ -1087,6 +1122,7 @@ public partial class MainWindow : Window
         WeakReferenceMessenger.Default.Unregister<RestoreSketchMessage>(this);
         WeakReferenceMessenger.Default.Unregister<RequestSaveWithSketchMessage>(this);
         WeakReferenceMessenger.Default.Unregister<ShowOptimalRouterMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<RequestHeatmapGenerationMessage>(this);
         base.OnClosed(e);
     }
 }
