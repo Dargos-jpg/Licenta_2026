@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
         mc:Ignorable="d"
         Title="WiFi Signal Optimizer"
         Height="820" Width="1400"
@@ -14,7 +15,6 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
 
-        <!-- Grid brush pentru drawing overlay -->
         <DrawingBrush x:Key="GridBrush" Viewport="0,0,20,20" ViewportUnits="Absolute" TileMode="Tile">
             <DrawingBrush.Drawing>
                 <GeometryDrawing>
@@ -28,9 +28,6 @@
             </DrawingBrush.Drawing>
         </DrawingBrush>
 
-        <!-- ═══════════════════════════════════════════════ -->
-        <!-- TOOLBOX RADIOBUTTON                            -->
-        <!-- ═══════════════════════════════════════════════ -->
         <Style x:Key="ToolboxButton" TargetType="RadioButton">
             <Setter Property="Background"               Value="Transparent"/>
             <Setter Property="Foreground"               Value="{StaticResource TextSecondary}"/>
@@ -70,7 +67,6 @@
             </Setter>
         </Style>
 
-        <!-- Label secțiune toolbox -->
         <Style x:Key="ToolboxSectionLabel" TargetType="TextBlock">
             <Setter Property="FontSize"     Value="9"/>
             <Setter Property="FontWeight"   Value="Bold"/>
@@ -79,7 +75,6 @@
             <Setter Property="Margin"       Value="10,12,0,4"/>
         </Style>
 
-        <!-- Separator slim -->
         <Style x:Key="SectionSep" TargetType="Rectangle">
             <Setter Property="Height"  Value="1"/>
             <Setter Property="Fill"    Value="{StaticResource BorderBrush}"/>
@@ -95,22 +90,14 @@
             <ColumnDefinition Width="210"/>
         </Grid.ColumnDefinitions>
 
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- COL 0 — SIDEBAR STÂNGA                                      -->
-        <!-- ═══════════════════════════════════════════════════════════ -->
         <Grid Grid.Column="0" Background="{StaticResource BgPanel}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <!-- Logo bar -->
                 <RowDefinition Height="Auto"/>
-                <!-- Mode toggle -->
                 <RowDefinition Height="*"/>
-                <!-- Content -->
                 <RowDefinition Height="Auto"/>
-                <!-- Status bar -->
             </Grid.RowDefinitions>
 
-            <!-- ── Logo Bar ── -->
             <Border Grid.Row="0"
                     Background="{StaticResource BgSection}"
                     BorderBrush="{StaticResource BorderBrush}"
@@ -118,7 +105,6 @@
                     Padding="16,14">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <!-- Indicator dot animat -->
                         <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,10,0">
                             <Ellipse.Fill>
                                 <SolidColorBrush Color="#3B82F6"/>
@@ -139,7 +125,6 @@
                 </Grid>
             </Border>
 
-            <!-- ── Mode Toggle ── -->
             <Border Grid.Row="1"
                     Background="{StaticResource BgBase}"
                     BorderBrush="{StaticResource BorderBrush}"
@@ -217,13 +202,11 @@
                 </Border>
             </Border>
 
-            <!-- ── Scrollable Content ── -->
             <ScrollViewer Grid.Row="2"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,6,0,6">
 
-                    <!-- HARTĂ -->
                     <Expander Style="{StaticResource SidebarExpander}" IsExpanded="True">
                         <Expander.Header>
                             <TextBlock Text="HARTĂ" FontSize="9" FontFamily="Consolas"
@@ -231,14 +214,21 @@
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="10,2,10,8">
-                            <Button Content="  📂  Încarcă Plan"
-                                    Style="{StaticResource SidebarButton}"
-                                    Command="{Binding LoadMapCommand}"/>
-                            <Button Content="  ✏️  Creează Schiță Nouă"
-                                    Style="{StaticResource SidebarButton}"
-                                    Click="StartSketch_Click"/>
-                            <Button Content="  📏  Calibrează Scara"
-                                    Click="StartCalibration_Click">
+                            <Button Style="{StaticResource SidebarButton}" Command="{Binding LoadMapCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="FolderOpen" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Încarcă Plan" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SidebarButton}" Click="StartSketch_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="PencilBox" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Creează Schiță Nouă" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Click="StartCalibration_Click">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -249,8 +239,13 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="RulerSquare" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Calibrează Scara" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Button>
-                            <!-- Calibration status -->
+
                             <Border Margin="2,4,0,0">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -285,7 +280,6 @@
 
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="12,0" Opacity="0.4"/>
 
-                    <!-- SCANARE WiFi -->
                     <Expander Style="{StaticResource SidebarExpander}" IsExpanded="True">
                         <Expander.Header>
                             <TextBlock Text="SCANARE WI-FI" FontSize="9" FontFamily="Consolas"
@@ -293,15 +287,24 @@
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="10,2,10,8">
-                            <Button Content="  📡  Scanează Rețele"
-                                    Style="{StaticResource SidebarButton}"
+                            <Button Style="{StaticResource SidebarButton}"
                                     Command="{Binding ScanCommand}"
-                                    IsEnabled="{Binding IsScanning, Converter={StaticResource InvertBoolConverter}}"/>
-                            <Button Content="  🩺  Diagnostichează Rețeaua"
-                                    Style="{StaticResource SidebarButton}"
-                                    Command="{Binding AnalyzeNetworkCommand}"/>
-                            <Button Content="{Binding AutoScanButtonText}"
-                                    Command="{Binding ToggleAutoScanCommand}">
+                                    IsEnabled="{Binding IsScanning, Converter={StaticResource InvertBoolConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="WifiRefresh" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Scanează Rețele" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SidebarButton}"
+                                    Command="{Binding AnalyzeNetworkCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="Stethoscope" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Diagnostichează Rețeaua" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{Binding ToggleAutoScanCommand}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -315,9 +318,13 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="PlayPause" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding AutoScanButtonText}" VerticalAlignment="Center"/>
+                                </StackPanel>
                             </Button>
 
-                            <!-- Point count pill -->
                             <Border Margin="0,6,0,2" Padding="8,4" CornerRadius="4"
                                     Background="#0D0D14" HorizontalAlignment="Left">
                                 <TextBlock FontSize="10" FontFamily="Consolas"
@@ -325,7 +332,6 @@
                                            Text="{Binding SurveyPointCount, StringFormat='  {0} puncte înregistrate'}"/>
                             </Border>
 
-                            <!-- Lista Basic -->
                             <Border Margin="0,6,0,0">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -355,8 +361,9 @@
                                                         <ColumnDefinition Width="*"/>
                                                         <ColumnDefinition Width="50"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Grid.Column="0" Text="📶"
-                                                               FontSize="10" VerticalAlignment="Center"/>
+                                                    <iconPacks:PackIconMaterial Grid.Column="0" Kind="Wifi"
+                                                                                Width="11" Height="11" VerticalAlignment="Center"
+                                                                                Foreground="{StaticResource TextMuted}"/>
                                                     <TextBlock Grid.Column="1" Text="{Binding SSID}"
                                                                FontSize="11" FontFamily="Segoe UI"
                                                                Foreground="{StaticResource TextPrimary}"
@@ -372,7 +379,6 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- Tabel Expert -->
                             <Border Margin="0,6,0,0">
                                 <Border.Style>
                                     <Style TargetType="Border">
@@ -409,7 +415,6 @@
 
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="12,0" Opacity="0.4"/>
 
-                    <!-- ANALIZĂ AVANSATĂ (Expert) -->
                     <Expander IsExpanded="False">
                         <Expander.Style>
                             <Style TargetType="Expander" BasedOn="{StaticResource SidebarExpander}">
@@ -427,19 +432,28 @@
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="10,2,10,8">
-                            <Button Content="  🔥  Generează Heatmap"
-                                    Style="{StaticResource SidebarButton}"
-                                    Command="{Binding GenerateHeatmapCommand}"/>
-                            <Button Content="  ⭐  Poziție Optimă Router (Min-Max)"
-                                    Style="{StaticResource SidebarButton}"
+                            <Button Style="{StaticResource SidebarButton}"
+                                    Command="{Binding GenerateHeatmapCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="LayersTriple" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Generează Heatmap" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource SidebarButton}"
                                     Command="{Binding CalculateOptimalRouterCommand}"
-                                    ToolTip="Algoritmul Min-Max garantează semnal uniform în toată casa."/>
+                                    ToolTip="Algoritmul Min-Max garantează semnal uniform în toată casa.">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="RouterWireless" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Poziție Optimă Router (Min-Max)" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                     </Expander>
 
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="12,0" Opacity="0.4"/>
 
-                    <!-- PROIECT -->
                     <Expander Style="{StaticResource SidebarExpander}" IsExpanded="True">
                         <Expander.Header>
                             <TextBlock Text="PROIECT" FontSize="9" FontFamily="Consolas"
@@ -453,23 +467,37 @@
                                     <ColumnDefinition Width="6"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Content="  💾  Salvare"
-                                        Style="{StaticResource AccentButton}"
-                                        Command="{Binding SaveProjectCommand}" Padding="8,7"/>
-                                <Button Grid.Column="2" Content="  📥  Încărcare"
-                                        Style="{StaticResource SidebarButton}"
-                                        Command="{Binding LoadProjectCommand}" Padding="8,7"/>
+                                <Button Grid.Column="0" Style="{StaticResource AccentButton}"
+                                        Command="{Binding SaveProjectCommand}" Padding="8,7">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="ContentSave" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Salvare" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="2" Style="{StaticResource SidebarButton}"
+                                        Command="{Binding LoadProjectCommand}" Padding="8,7">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="TrayArrowDown" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Încărcare" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </Grid>
-                            <Button Content="  🗑️  Șterge Toate Punctele"
-                                    Style="{StaticResource DangerButton}"
-                                    Command="{Binding ClearSurveyPointsCommand}"/>
+                            <Button Style="{StaticResource DangerButton}"
+                                    Command="{Binding ClearSurveyPointsCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="TrashCanOutline" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Șterge Toate Punctele" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                     </Expander>
 
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- ── Status Bar ── -->
             <Border Grid.Row="3"
                     Background="#0A0A10"
                     BorderBrush="{StaticResource BorderBrush}"
@@ -491,16 +519,12 @@
             </Border>
         </Grid>
 
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- COL 1 — ZONA PRINCIPALĂ: HARTĂ                             -->
-        <!-- ═══════════════════════════════════════════════════════════ -->
         <Grid Grid.Column="1" Background="{StaticResource BgBase}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Toolbar hartă -->
             <Border Grid.Row="0"
                     Background="{StaticResource BgSection}"
                     BorderBrush="{StaticResource BorderBrush}"
@@ -511,10 +535,8 @@
                                FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"
                                VerticalAlignment="Center"/>
 
-                    <!-- Separator -->
                     <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
 
-                    <!-- Point count badge -->
                     <Border Background="#1A1A2E" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
                         <TextBlock Text="{Binding SurveyPointCount, StringFormat='{}{0} puncte'}"
                                    FontSize="10" FontFamily="Consolas"
@@ -523,7 +545,6 @@
 
                     <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
 
-                    <!-- Active tool indicator -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse Width="5" Height="5" Fill="{StaticResource Accent}"
                                  VerticalAlignment="Center" Margin="0,0,6,0">
@@ -532,7 +553,7 @@
                             </Ellipse.Effect>
                         </Ellipse>
                         <TextBlock x:Name="ActiveToolLabel"
-                                   Text="Punct Măsurare activ"
+                                   Text="Punct Masurare activ"
                                    FontSize="11" FontFamily="Segoe UI"
                                    Foreground="{StaticResource Accent}"
                                    VerticalAlignment="Center"/>
@@ -540,16 +561,17 @@
 
                     <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
 
-                    <!-- Rețea selectată -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="📶 " FontSize="11" VerticalAlignment="Center"/>
-                        <TextBlock Text="Rețea analizată: "
+                        <iconPacks:PackIconMaterial Kind="Wifi" Width="13" Height="13"
+                                                    VerticalAlignment="Center" Margin="0,0,6,0"
+                                                    Foreground="{StaticResource TextMuted}"/>
+                        <TextBlock Text="Retea analizata: "
                                    FontSize="11" FontFamily="Segoe UI"
                                    Foreground="{StaticResource TextMuted}"
                                    VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding SelectedNetwork.SSID,
-                                           TargetNullValue='Nicio rețea selectată',
-                                           FallbackValue='Nicio rețea selectată'}"
+                                           TargetNullValue='Nicio retea selectata',
+                                           FallbackValue='Nicio retea selectata'}"
                                    FontSize="11" FontFamily="Segoe UI" FontWeight="Bold"
                                    Foreground="{StaticResource Accent}"
                                    VerticalAlignment="Center"/>
@@ -557,7 +579,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Canvas hartă -->
             <ScrollViewer Grid.Row="1"
                           HorizontalScrollBarVisibility="Auto"
                           VerticalScrollBarVisibility="Auto"
@@ -565,6 +586,7 @@
                 <Canvas x:Name="MapCanvas"
                         MouseWheel="MapCanvas_MouseWheel"
                         Background="Transparent">
+
                     <Grid x:Name="MapContent"
                           MouseLeftButtonDown="MapContent_MouseLeftButtonDown"
                           MouseRightButtonDown="MapContent_MouseRightButtonDown"
@@ -573,75 +595,75 @@
                           Background="Transparent"
                           Cursor="Cross">
 
+                        <Border x:Name="GridBackground"
+                                Background="{StaticResource GridBrush}"
+                                Opacity="0.5" Panel.ZIndex="0"
+                                Visibility="Collapsed" />
+
                         <Image x:Name="FloorPlanImage"
                                Source="{Binding FloorPlan}"
-                               Stretch="None"
+                               Stretch="Uniform"
                                HorizontalAlignment="Left"
-                               VerticalAlignment="Top"/>
+                               VerticalAlignment="Top" Panel.ZIndex="1"/>
 
                         <Image Source="{Binding HeatmapOverlay}"
                                Width="{Binding ElementName=FloorPlanImage, Path=ActualWidth}"
                                Height="{Binding ElementName=FloorPlanImage, Path=ActualHeight}"
-                               Stretch="Fill" IsHitTestVisible="False" Opacity="0.7"/>
+                               Stretch="Fill" IsHitTestVisible="False" Opacity="0.7" Panel.ZIndex="2"/>
 
-                        <Canvas x:Name="SurveyPointsCanvas" Background="Transparent" Panel.ZIndex="1"/>
-                        <Canvas x:Name="ObjectsCanvas" Background="{x:Null}"
-                                IsHitTestVisible="True" Panel.ZIndex="5"/>
+                        <InkCanvas x:Name="EditorCanvas"
+                                   Background="Transparent"
+                                   MouseLeftButtonDown="EditorCanvas_MouseDown"
+                                   MouseMove="EditorCanvas_MouseMove"
+                                   MouseLeftButtonUp="EditorCanvas_MouseUp"
+                                   Panel.ZIndex="3"
+                                   EditingMode="None">
+                            <InkCanvas.DefaultDrawingAttributes>
+                                <DrawingAttributes Color="#C8D6F0" Height="3" Width="3" FitToCurve="False"/>
+                            </InkCanvas.DefaultDrawingAttributes>
+                        </InkCanvas>
+
+                        <Line x:Name="PreviewLine"
+                              Stroke="#3B82F6" StrokeThickness="1.5"
+                              Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="4"/>
+
+                        <Canvas x:Name="SurveyPointsCanvas" Background="Transparent" Panel.ZIndex="5" IsHitTestVisible="False"/>
+                        <Canvas x:Name="ObjectsCanvas" Background="{x:Null}" IsHitTestVisible="True" Panel.ZIndex="6"/>
                     </Grid>
                 </Canvas>
             </ScrollViewer>
 
-            <!-- DRAWING OVERLAY -->
-            <Grid x:Name="DrawingOverlay"
+            <Grid x:Name="DrawingOverlayUI"
                   Grid.Row="1"
-                  Visibility="Collapsed"
-                  Background="{StaticResource BgBase}">
+                  Visibility="Collapsed">
 
-                <Border Background="{StaticResource GridBrush}" Opacity="0.5" Panel.ZIndex="0"/>
-
-                <InkCanvas x:Name="EditorCanvas"
-                           Background="Transparent"
-                           MouseLeftButtonDown="EditorCanvas_MouseDown"
-                           MouseMove="EditorCanvas_MouseMove"
-                           MouseLeftButtonUp="EditorCanvas_MouseUp"
-                           Panel.ZIndex="1">
-                    <InkCanvas.DefaultDrawingAttributes>
-                        <DrawingAttributes Color="#C8D6F0" Height="3" Width="3" FitToCurve="False"/>
-                    </InkCanvas.DefaultDrawingAttributes>
-                </InkCanvas>
-
-                <Line x:Name="PreviewLine"
-                      Stroke="#3B82F6" StrokeThickness="1.5"
-                      Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="100"/>
-
-                <!-- Hint bottom -->
                 <Border VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                        Margin="0,0,0,16"
-                        Background="{StaticResource BgSection}"
+                        Margin="0,0,0,16" Background="{StaticResource BgSection}"
                         CornerRadius="6" Padding="14,7"
                         BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                         Panel.ZIndex="200">
-                    <TextBlock Text="Folosește uneltele din dreapta  ·  Salvează Schița când ești gata"
-                               Foreground="{StaticResource TextMuted}"
-                               FontSize="10" FontFamily="Consolas"/>
+                    <TextBlock Text="Selectează materialul din dreapta · Salvează Schița când ești gata"
+                               Foreground="{StaticResource TextMuted}" FontSize="10" FontFamily="Consolas"/>
                 </Border>
 
-                <!-- Butoane Salvează / Anulează -->
                 <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right"
-                            Orientation="Horizontal"
-                            Margin="0,14,14,0" Panel.ZIndex="200">
-                    <Button Content="  💾  Salvează Schița"
-                            Click="SaveSketch_Click"
-                            Style="{StaticResource AccentButton}"
-                            Padding="12,8" Margin="0,0,6,0" FontSize="11"/>
-                    <Button Content="  ✕  Anulează"
-                            Click="CancelSketch_Click"
-                            Style="{StaticResource DangerButton}"
-                            Padding="12,8" FontSize="11"/>
+                            Orientation="Horizontal" Margin="0,14,24,0" 
+                            Panel.ZIndex="200" IsHitTestVisible="True">
+                    <Button Click="SaveSketch_Click" Style="{StaticResource AccentButton}" Padding="12,8" Margin="0,0,6,0" FontSize="11">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="ContentSave" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="Salvează Schița" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Click="CancelSketch_Click" Style="{StaticResource DangerButton}" Padding="12,8" FontSize="11">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="Close" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="Anulează" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
 
-            <!-- Keyboard shortcuts card -->
             <Border Grid.Row="1"
                     Background="{StaticResource BgSection}"
                     BorderBrush="{StaticResource BorderBrush}"
@@ -656,22 +678,21 @@
                     <TextBlock Text="COMENZI RAPIDE" FontWeight="Bold" FontSize="9"
                                FontFamily="Consolas" Foreground="{StaticResource TextMuted}"
                                Margin="0,0,0,8"/>
-                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="Scroll  →  Zoom In/Out"/>
-                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="Drag    →  Mută harta"/>
-                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="R / Shift+R  →  Rotire"/>
-                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="ESC  →  Resetează poziția"/>
+                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="Scroll  ->  Zoom In/Out"/>
+                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="Drag    ->  Muta harta"/>
+                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="R / Shift+R  ->  Rotire"/>
+                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="ESC  ->  Reseteaza pozitia"/>
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,6" Opacity="0.5"/>
                     <StackPanel Orientation="Horizontal">
                         <Ellipse Width="4" Height="4" Fill="{StaticResource Accent}"
                                  VerticalAlignment="Center" Margin="0,0,5,0"/>
                         <TextBlock FontSize="10" FontFamily="Consolas"
                                    Foreground="{StaticResource Accent}"
-                                   Text="Click stânga  →  Acțiunea unealtei active"/>
+                                   Text="Click stanga  ->  Actiunea unealtei active"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <!-- Placeholder niciun plan -->
             <StackPanel Grid.Row="1"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding FloorPlan, Converter={StaticResource NullToVisibilityConverter}}">
@@ -681,12 +702,15 @@
                     <Border.Effect>
                         <DropShadowEffect Color="#3B82F6" BlurRadius="20" ShadowDepth="0" Opacity="0.2"/>
                     </Border.Effect>
-                    <TextBlock Text="📋" FontSize="36" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <iconPacks:PackIconMaterial Kind="FloorPlan" Width="36" Height="36"
+                                               Foreground="#3B82F6"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
                 </Border>
-                <TextBlock Text="Niciun plan încărcat"
+                <TextBlock Text="Niciun plan incarcat"
                            FontSize="16" FontFamily="Segoe UI" FontWeight="SemiBold"
                            Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
-                <TextBlock Text="Folosește panoul din stânga pentru a încărca un plan sau a crea o schiță nouă."
+                <TextBlock Text="Foloseste panoul din stanga pentru a incarca un plan sau a crea o schita noua."
                            FontSize="11" FontFamily="Segoe UI"
                            Foreground="{StaticResource TextMuted}"
                            HorizontalAlignment="Center" Margin="0,8,0,0"
@@ -694,9 +718,6 @@
             </StackPanel>
         </Grid>
 
-        <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- COL 2 — TOOLBOX DREAPTA                                    -->
-        <!-- ═══════════════════════════════════════════════════════════ -->
         <Border Grid.Column="2"
                 Background="{StaticResource BgPanel}"
                 BorderBrush="{StaticResource BorderBrush}"
@@ -707,7 +728,6 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <!-- Toolbox header -->
                 <Border Grid.Row="0"
                         Background="{StaticResource BgSection}"
                         BorderBrush="{StaticResource BorderBrush}"
@@ -715,7 +735,7 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <Rectangle Width="3" Height="12" Fill="{StaticResource Accent}"
                                    VerticalAlignment="Center" RadiusX="1" RadiusY="1" Margin="0,0,8,0"/>
-                        <TextBlock Text="TRUSĂ DE UNELTE"
+                        <TextBlock Text="TRUSA DE UNELTE"
                                    FontSize="9" FontWeight="Bold" FontFamily="Consolas"
                                    Foreground="{StaticResource TextMuted}"
                                    VerticalAlignment="Center"/>
@@ -725,95 +745,158 @@
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="8,6,8,16">
 
-                        <!-- ACȚIUNI -->
-                        <TextBlock Text="ACȚIUNI" Style="{StaticResource ToolboxSectionLabel}"/>
+                        <TextBlock Text="ACTIUNI" Style="{StaticResource ToolboxSectionLabel}"/>
 
                         <RadioButton x:Name="ToolSurveyPoint"
                                      GroupName="ActiveTool"
-                                     Content="  📍  Punct Măsurare"
                                      Style="{StaticResource ToolboxButton}"
                                      IsChecked="True"
-                                     Checked="ToolSurveyPoint_Checked"/>
+                                     Checked="ToolSurveyPoint_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="MapMarker" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="Punct Masurare" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                         <RadioButton x:Name="ToolPointer"
                                      GroupName="ActiveTool"
-                                     Content="  🖱️  Navigare / Mutare"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolPointer_Checked"/>
+                                     Checked="ToolPointer_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="CursorDefault" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="Navigare / Mutare" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
-                        <!-- OBSTACOLE -->
                         <TextBlock Text="OBSTACOLE · ATENUARE" Style="{StaticResource ToolboxSectionLabel}"/>
                         <Rectangle Style="{StaticResource SectionSep}"/>
 
                         <RadioButton x:Name="ToolWallConcrete"
                                      GroupName="ActiveTool"
-                                     Content="  🧱  Zid Beton  −12 dBm"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="ConcreteWall"/>
+                                     Checked="ToolObstacle_Checked" Tag="ConcreteWall">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="Wall" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"
+                                                            Foreground="#787878"/>
+                                <TextBlock Text="Zid Beton  -12 dBm" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                         <RadioButton x:Name="ToolWallBrick"
                                      GroupName="ActiveTool"
-                                     Content="  🧱  Cărămidă  −6 dBm"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="BrickWall"/>
+                                     Checked="ToolObstacle_Checked" Tag="BrickWall">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="Wall" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"
+                                                            Foreground="#8B4513"/>
+                                <TextBlock Text="Caramida  -6 dBm" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                         <RadioButton x:Name="ToolDoorWood"
                                      GroupName="ActiveTool"
-                                     Content="  🚪  Ușă Lemn  −3 dBm"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="WoodDoor"/>
+                                     Checked="ToolObstacle_Checked" Tag="WoodDoor">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="DoorOpen" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"
+                                                            Foreground="#CD853F"/>
+                                <TextBlock Text="Usa Lemn  -3 dBm" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                         <Rectangle Style="{StaticResource SectionSep}" Margin="10,4,10,4"/>
 
                         <RadioButton x:Name="ToolFridge"
                                      GroupName="ActiveTool"
-                                     Content="  ❄️  Frigider  −15 dBm"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="Fridge"/>
+                                     Checked="ToolObstacle_Checked" Tag="Fridge">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="Fridge" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"
+                                                            Foreground="#0064C8"/>
+                                <TextBlock Text="Frigider  -15 dBm" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                         <RadioButton x:Name="ToolTV"
                                      GroupName="ActiveTool"
-                                     Content="  📺  Televizor  −5 dBm"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="TV"/>
+                                     Checked="ToolObstacle_Checked" Tag="TV">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="Television" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"
+                                                            Foreground="#9600C8"/>
+                                <TextBlock Text="Televizor  -5 dBm" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                         <RadioButton x:Name="ToolMicrowave"
                                      GroupName="ActiveTool"
-                                     Content="  📻  Microunde  −8 dBm"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="Microwave"/>
+                                     Checked="ToolObstacle_Checked" Tag="Microwave">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="Microwave" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"
+                                                            Foreground="#C83232"/>
+                                <TextBlock Text="Microunde  -8 dBm" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
-                        <!-- ECHIPAMENTE REȚEA -->
-                        <TextBlock Text="ECHIPAMENTE REȚEA" Style="{StaticResource ToolboxSectionLabel}"/>
+                        <TextBlock Text="ECHIPAMENTE RETEA" Style="{StaticResource ToolboxSectionLabel}"/>
                         <Rectangle Style="{StaticResource SectionSep}"/>
 
                         <RadioButton x:Name="ToolRouter"
                                      GroupName="ActiveTool"
-                                     Content="  📡  Router Virtual"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="Router"/>
+                                     Checked="ToolObstacle_Checked" Tag="Router">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="RouterWireless" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"
+                                                            Foreground="{StaticResource Accent}"/>
+                                <TextBlock Text="Router Virtual" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
-                        <!-- SCHIȚĂ ARHITECTURALĂ -->
-                        <TextBlock Text="SCHIȚĂ ARHITECTURALĂ" Style="{StaticResource ToolboxSectionLabel}"/>
+                        <TextBlock Text="SCHITA ARHITECTURALA" Style="{StaticResource ToolboxSectionLabel}"/>
                         <Rectangle Style="{StaticResource SectionSep}"/>
 
                         <RadioButton x:Name="ToolDrawWall"
                                      GroupName="ActiveTool"
-                                     Content="  ✏️  Perete (liber)"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolDrawWall_Checked"/>
+                                     Checked="ToolDrawWall_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="Pencil" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="Perete (liber)" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                         <RadioButton x:Name="ToolDrawLine"
                                      GroupName="ActiveTool"
-                                     Content="  📐  Linie Dreaptă"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolDrawLine_Checked"/>
+                                     Checked="ToolDrawLine_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="VectorLine" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="Linie Dreapta" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                         <RadioButton x:Name="ToolEraser"
                                      GroupName="ActiveTool"
-                                     Content="  🧹  Radieră"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolEraser_Checked"/>
+                                     Checked="ToolEraser_Checked">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="Eraser" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="Radiera" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </RadioButton>
 
                     </StackPanel>
                 </ScrollViewer>

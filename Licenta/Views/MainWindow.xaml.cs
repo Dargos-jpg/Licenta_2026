@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.Messaging;
+using MahApps.Metro.IconPacks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Ink;
@@ -53,52 +54,44 @@ public partial class MainWindow : Window
 
         DataContext = _viewModel;
 
-        // Register for clear survey points message
         WeakReferenceMessenger.Default.Register<ClearSurveyPointsMessage>(this, (r, m) =>
         {
             ClearVisualSurveyPoints();
         });
 
-        // Register for redraw survey points message
         WeakReferenceMessenger.Default.Register<RedrawSurveyPointsMessage>(this, (r, m) =>
         {
             RedrawSurveyPoints(m.SurveyPoints);
         });
 
-        // Register for redraw map elements (obstacole) message
         WeakReferenceMessenger.Default.Register<RedrawMapElementsMessage>(this, (r, m) =>
         {
             RedrawMapElements(m.MapElements);
         });
 
-        // Register pentru restaurarea schiței vectoriale după load proiect
         WeakReferenceMessenger.Default.Register<RestoreSketchMessage>(this, (r, m) =>
         {
             EditorCanvas.Strokes.Clear();
             foreach (var stroke in m.Strokes)
                 EditorCanvas.Strokes.Add(stroke);
 
-            DrawingOverlay.Visibility = Visibility.Visible;
+            // Nu activăm interfața de desenare aici, doar afișăm schița
+            EditorCanvas.EditingMode = InkCanvasEditingMode.None;
         });
 
-        // Butonul "Salvare" din panou → colectăm schița și salvăm tot
         WeakReferenceMessenger.Default.Register<RequestSaveWithSketchMessage>(this, (r, m) =>
         {
             CollectSketchAndSave();
         });
 
-        // ✅ NOU: Calcul AI Router cu suport pereți desenați
         WeakReferenceMessenger.Default.Register<RequestOptimalRouterMessage>(this, async (r, m) =>
         {
             try
             {
                 var elements = _viewModel.GetMapElements().ToList();
                 var surveys = _viewModel.GetSurveyPoints().ToList();
-
-                // ✅ AICI ESTE SECRETUL: Luăm pereții desenați direct din interfață!
                 var strokes = EditorCanvas.Strokes;
 
-                // Rulăm matematica grea pe un thread separat ca să nu blocăm interfața
                 Point optimalPosition = await Task.Run(() =>
                 {
                     var optimizer = new RouterOptimizationService();
@@ -106,20 +99,17 @@ public partial class MainWindow : Window
                         elements, surveys, strokes, m.Width, m.Height, m.Scale);
                 });
 
-                _viewModel.StatusMessage = $"✅ Poziție optimă: X={optimalPosition.X:F0}, Y={optimalPosition.Y:F0} — semnal uniform garantat.";
-
-                // Apelăm funcția existentă care pune steluța ⭐ pe ecran
+                _viewModel.StatusMessage = $"Pozitie optima: X={optimalPosition.X:F0}, Y={optimalPosition.Y:F0} — semnal uniform garantat.";
                 DrawOptimalRouterIndicator(optimalPosition);
             }
             catch (Exception ex)
             {
                 _viewModel.StatusMessage = $"Eroare calcul AI: {ex.Message}";
-                MessageBox.Show($"Eroare la calculul poziției optime:\n{ex.Message}",
+                MessageBox.Show($"Eroare la calculul pozitiei optime:\n{ex.Message}",
                     "Eroare AI", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         });
 
-        // Heatmap PRO: extragem liniile desenate din EditorCanvas și le trimitem la serviciu
         WeakReferenceMessenger.Default.Register<RequestHeatmapGenerationMessage>(this, async (r, m) =>
         {
             try
@@ -208,7 +198,7 @@ public partial class MainWindow : Window
 
     private void MapCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (_viewModel.FloorPlan == null) return;
+        if (_viewModel.FloorPlan == null && GridBackground.Visibility == Visibility.Collapsed) return;
 
         const double zoomSpeed = 0.1;
         double zoomChange = e.Delta > 0 ? zoomSpeed : -zoomSpeed;
@@ -228,9 +218,8 @@ public partial class MainWindow : Window
 
     private void MapContent_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_viewModel.FloorPlan == null) return;
+        if (_viewModel.FloorPlan == null && GridBackground.Visibility == Visibility.Collapsed) return;
 
-        // Calibrare are prioritate absolută
         if (_isCalibrating)
         {
             _startPoint = e.GetPosition(MapContent);
@@ -244,6 +233,10 @@ public partial class MainWindow : Window
                 StrokeThickness = 3,
                 StrokeDashArray = new DoubleCollection { 4, 2 }
             };
+
+            // MAGIC FIX: Punem linia de calibrare deasupra tuturor straturilor!
+            Panel.SetZIndex(_calibrationLine, 100);
+
             MapContent.Children.Add(_calibrationLine);
             MapContent.CaptureMouse();
             e.Handled = true;
@@ -256,7 +249,6 @@ public partial class MainWindow : Window
         switch (tool)
         {
             case "SurveyPoint":
-                // Plasează punct de măsurare (fostul click dreapta)
                 int signal = _viewModel.VisibleNetworks.Count > 0
                     ? _viewModel.VisibleNetworks.Max(n => n.SignalStrength)
                     : -90;
@@ -301,7 +293,6 @@ public partial class MainWindow : Window
                 break;
 
             default:
-                // Pointer / navigare → drag normal
                 _isDragging = true;
                 _lastMousePosition = e.GetPosition(MapCanvas);
                 MapContent.CaptureMouse();
@@ -310,15 +301,10 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Plasează un element (obstacol/router) direct la coordonatele click-ului.
-    /// Paradigma "Selectează unealtă → Click pe hartă".
-    /// </summary>
     private void PlaceObstacleAtPoint(Point pos, ElementType type)
     {
-        var element = CreateEmojiElement(type);
+        var element = CreateIconElement(type);
 
-        // Centrăm elementul pe click
         Canvas.SetLeft(element, pos.X - 20);
         Canvas.SetTop(element, pos.Y - 20);
 
@@ -331,12 +317,13 @@ public partial class MainWindow : Window
             Y = pos.Y - 20
         });
 
-        _viewModel.StatusMessage = $"{GetEmoji(type)}  {type} plasat la X={pos.X:F0}, Y={pos.Y:F0}";
+        var (_, label, _) = GetDrawingMaterial(type.ToString());
+        _viewModel.StatusMessage = $"{type} plasat la X={pos.X:F0}, Y={pos.Y:F0}";
     }
 
     private void MapContent_MouseMove(object sender, MouseEventArgs e)
     {
-        if (_viewModel.FloorPlan == null) return;
+        if (_viewModel.FloorPlan == null && GridBackground.Visibility == Visibility.Collapsed) return;
 
         if (_isCalibrating && _calibrationLine != null)
         {
@@ -386,7 +373,7 @@ public partial class MainWindow : Window
 
     private void MapContent_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (_viewModel.FloorPlan == null)
+        if (_viewModel.FloorPlan == null && GridBackground.Visibility == Visibility.Collapsed)
             return;
 
         var clickPosition = e.GetPosition(MapContent);
@@ -403,7 +390,7 @@ public partial class MainWindow : Window
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
-        if (_viewModel.FloorPlan == null) return;
+        if (_viewModel.FloorPlan == null && GridBackground.Visibility == Visibility.Collapsed) return;
 
         if (e.Key == Key.R)
         {
@@ -423,7 +410,11 @@ public partial class MainWindow : Window
                     MapContent.Children.Remove(_calibrationLine);
                     _calibrationLine = null;
                 }
-                _viewModel.StatusMessage = "Calibrare anulată.";
+                _viewModel.StatusMessage = "Calibrare anulata.";
+            }
+            else if (DrawingOverlayUI.Visibility == Visibility.Visible)
+            {
+                CancelSketch_Click(sender, new RoutedEventArgs());
             }
             else
             {
@@ -471,10 +462,10 @@ public partial class MainWindow : Window
         SurveyPointsCanvas.Children.Add(dot);
 
         string signalQuality = signalStrength > -50 ? "Excelent" :
-                              signalStrength > -70 ? "Mediu" : "Slab";
-        dot.ToolTip = $"Punct de Măsurare\n" +
-                     $"Coordonate: ({position.X:F0}, {position.Y:F0})\n" +
-                     $"Semnal: {signalStrength} dBm ({signalQuality})";
+                               signalStrength > -70 ? "Mediu" : "Slab";
+        dot.ToolTip = $"Punct de Masurare\n" +
+                      $"Coordonate: ({position.X:F0}, {position.Y:F0})\n" +
+                      $"Semnal: {signalStrength} dBm ({signalQuality})";
     }
 
     private void RedrawSurveyPoints(IReadOnlyList<SurveyPoint> surveyPoints)
@@ -514,7 +505,6 @@ public partial class MainWindow : Window
     {
         SurveyPointsCanvas.Children.Clear();
 
-        // Ștergem și "fantoma" steluței vechi de pe hartă
         var oldIndicators = ObjectsCanvas.Children
             .OfType<FrameworkElement>()
             .Where(e => e.Tag as string == "OptimalRouter")
@@ -528,16 +518,13 @@ public partial class MainWindow : Window
 
     #region Map Elements (Obstacole)
 
-    /// <summary>
-    /// ✅ NOU: Redesenează obstacolele pe ObjectsCanvas după încărcarea unui proiect
-    /// </summary>
     private void RedrawMapElements(IReadOnlyList<MapElement> elements)
     {
         ObjectsCanvas.Children.Clear();
 
         foreach (var element in elements)
         {
-            var visual = CreateEmojiElement(element.Type);
+            var visual = CreateIconElement(element.Type);
             Canvas.SetLeft(visual, element.X);
             Canvas.SetTop(visual, element.Y);
             ObjectsCanvas.Children.Add(visual);
@@ -550,32 +537,129 @@ public partial class MainWindow : Window
 
     private void StartSketch_Click(object sender, RoutedEventArgs e)
     {
-        DrawingOverlay.Visibility = Visibility.Visible;
+        DrawingOverlayUI.Visibility = Visibility.Visible;
         EditorCanvas.Strokes.Clear();
         ObjectsCanvas.Children.Clear();
-        SetPenAttributes(Colors.Black, 6);
+
+        if (_viewModel.FloorPlan == null)
+        {
+            MapCanvas.Width = 2000;
+            MapCanvas.Height = 1500;
+            MapContent.Width = 2000;
+            MapContent.Height = 1500;
+
+            GridBackground.Visibility = Visibility.Visible;
+            _viewModel.PixelsPerMeter = GRID_SIZE;
+            _viewModel.IsCalibrated = true;
+            _viewModel.StatusMessage = "Schiță nouă: 1 pătrățel = 1 metru.";
+        }
+        else
+        {
+            GridBackground.Visibility = Visibility.Collapsed;
+            _viewModel.StatusMessage = "Mod desenare: Desenează pereții direct peste planul încărcat.";
+        }
+
+        // Activăm instrumentul "Perete liber" automat dacă nu e niciunul selectat
+        if (ToolDrawWall.IsChecked != true && ToolDrawLine.IsChecked != true && ToolEraser.IsChecked != true)
+        {
+            ToolDrawWall.IsChecked = true;
+        }
+        else
+        {
+            EditorCanvas.IsHitTestVisible = true;
+            _isCalibrating = false;
+        }
+    }
+
+    private void CancelSketch_Click(object sender, RoutedEventArgs e)
+    {
+        DrawingOverlayUI.Visibility = Visibility.Collapsed;
+        GridBackground.Visibility = Visibility.Collapsed;
+
+        // Resetăm starea de desenare a canvas-ului
+        EditorCanvas.EditingMode = InkCanvasEditingMode.None;
+        EditorCanvas.IsHitTestVisible = false;
         _isLineToolActive = false;
-        _isCalibrating = false;
-        EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
 
-        // Auto-calibrare bazată pe grilă: 1 pătrățel (20px) = 1 metru
-        _viewModel.PixelsPerMeter = GRID_SIZE;
-        _viewModel.IsCalibrated = true;
+        // Mutăm interfața înapoi pe modul "Navigare / Mutare"
+        ToolPointer.IsChecked = true;
 
-        _viewModel.StatusMessage = "Mod Desenare: 1 pătrățel = 1 metru · Scara setată automat la 20 px/m.";
+        _viewModel.StatusMessage = "Desenare anulată.";
+    }
+
+    private void SaveSketch_Click(object sender, RoutedEventArgs e)
+    {
+        DrawingOverlayUI.Visibility = Visibility.Collapsed;
+        GridBackground.Visibility = Visibility.Collapsed;
+
+        // Oprim desenul și eliberăm mouse-ul
+        EditorCanvas.EditingMode = InkCanvasEditingMode.None;
+        EditorCanvas.IsHitTestVisible = false;
+        _isLineToolActive = false;
+
+        // Comutăm înapoi pe Navigare pentru siguranță
+        ToolPointer.IsChecked = true;
+
+        var dpiInfo = VisualTreeHelper.GetDpi(MapContent);
+        int width = (int)(MapContent.ActualWidth * dpiInfo.DpiScaleX);
+        int height = (int)(MapContent.ActualHeight * dpiInfo.DpiScaleY);
+
+        if (width == 0 || height == 0) { width = 800; height = 600; }
+
+        var rtb = new RenderTargetBitmap(
+            width, height,
+            dpiInfo.PixelsPerInchX, dpiInfo.PixelsPerInchY,
+            PixelFormats.Pbgra32);
+
+        var bg = new DrawingVisual();
+        using (var ctx = bg.RenderOpen())
+            ctx.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
+
+        rtb.Render(bg);
+        rtb.Render(EditorCanvas);
+        rtb.Render(ObjectsCanvas);
+        rtb.Freeze();
+
+        using (var stream = new System.IO.MemoryStream())
+        {
+            var enc = new PngBitmapEncoder();
+            enc.Frames.Add(BitmapFrame.Create(rtb));
+            enc.Save(stream);
+            stream.Position = 0;
+
+            var bmp = new BitmapImage();
+            bmp.BeginInit();
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
+            bmp.StreamSource = stream;
+            bmp.EndInit();
+            bmp.Freeze();
+            _viewModel.FloorPlan = bmp;
+        }
+
+        _viewModel.StatusMessage = "Schița setată ca plan!";
+
+        var result = MessageBox.Show(
+            "Schița a fost setată ca plan!\n\nVrei să salvezi proiectul complet acum?\n" +
+            "(schiță + puncte + obstacole + calibrare)",
+            "Salvare Proiect",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result == MessageBoxResult.Yes)
+            CollectSketchAndSave();
     }
 
     private void StartCalibration_Click(object sender, RoutedEventArgs e)
     {
         if (_viewModel.FloorPlan == null)
         {
-            MessageBox.Show("Încarcă mai întâi un plan!", "Atenție");
+            MessageBox.Show("Incarca mai intai un plan!", "Atentie");
             return;
         }
 
         _isCalibrating = true;
         Mouse.OverrideCursor = Cursors.Cross;
-        _viewModel.StatusMessage = "MOD CALIBRARE: Ține click stânga apăsat pe hartă și trage o linie.";
+        _viewModel.StatusMessage = "MOD CALIBRARE: Tine click stanga apasat pe harta si trage o linie.";
     }
 
     private void SetBasicMode_Click(object sender, RoutedEventArgs e)
@@ -587,15 +671,11 @@ public partial class MainWindow : Window
     private void SetExpertMode_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.IsExpertMode = true;
-        _viewModel.StatusMessage = "Mod Expert activat — toate funcțiile sunt disponibile.";
+        _viewModel.StatusMessage = "Mod Expert activat — toate functiile sunt disponibile.";
     }
 
-    #region Toolbox Handlers — unealta activă determină acțiunea click-ului pe hartă
+    #region Toolbox Handlers
 
-    /// <summary>
-    /// Returnează ce unealtă e selectată curent în Toolbox.
-    /// Folosit în MapContent_MouseLeftButtonDown pentru a decide acțiunea.
-    /// </summary>
     private string GetActiveTool()
     {
         if (ToolSurveyPoint?.IsChecked == true) return "SurveyPoint";
@@ -610,7 +690,7 @@ public partial class MainWindow : Window
         if (ToolDrawWall?.IsChecked == true) return "DrawWall";
         if (ToolDrawLine?.IsChecked == true) return "DrawLine";
         if (ToolEraser?.IsChecked == true) return "Eraser";
-        return "SurveyPoint"; // fallback
+        return "SurveyPoint";
     }
 
     private void UpdateActiveToolLabel(string toolName)
@@ -618,19 +698,19 @@ public partial class MainWindow : Window
         if (ActiveToolLabel == null) return;
         ActiveToolLabel.Text = toolName switch
         {
-            "SurveyPoint" => "● Punct Măsurare activ",
-            "Pointer" => "● Navigare / Mutare activ",
-            "Router" => "● Router Virtual activ",
-            "ConcreteWall" => "● Zid Beton activ  −12 dBm",
-            "BrickWall" => "● Cărămidă activă  −6 dBm",
-            "WoodDoor" => "● Ușă Lemn activă  −3 dBm",
-            "Fridge" => "● Frigider activ  −15 dBm",
-            "TV" => "● Televizor activ  −5 dBm",
-            "Microwave" => "● Microunde activ  −8 dBm",
-            "DrawWall" => "● Desenare Perete activă",
-            "DrawLine" => "● Linie Dreaptă activă",
-            "Eraser" => "● Radieră activă",
-            _ => "● Unealtă activă"
+            "SurveyPoint" => "Punct Masurare activ",
+            "Pointer" => "Navigare / Mutare activ",
+            "Router" => "Router Virtual activ",
+            "ConcreteWall" => "Zid Beton activ  -12 dBm",
+            "BrickWall" => "Caramida activa  -6 dBm",
+            "WoodDoor" => "Usa Lemn activa  -3 dBm",
+            "Fridge" => "Frigider activ  -15 dBm",
+            "TV" => "Televizor activ  -5 dBm",
+            "Microwave" => "Microunde activ  -8 dBm",
+            "DrawWall" => "Desenare Perete activa",
+            "DrawLine" => "Linie Dreapta activa",
+            "Eraser" => "Radiera activa",
+            _ => "Unealta activa"
         };
     }
 
@@ -638,17 +718,38 @@ public partial class MainWindow : Window
     {
         if (_viewModel == null) return;
         UpdateActiveToolLabel("SurveyPoint");
+
+        _isLineToolActive = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.None;
+        EditorCanvas.IsHitTestVisible = false; // Eliberăm harta
+
         MapContent.Cursor = Cursors.Cross;
-        _viewModel.StatusMessage = "Click stânga pe hartă pentru a plasa un punct de măsurare.";
+        _viewModel.StatusMessage = "Click stanga pe harta pentru a plasa un punct de masurare.";
     }
 
     private void ToolPointer_Checked(object sender, RoutedEventArgs e)
     {
         if (_viewModel == null) return;
         UpdateActiveToolLabel("Pointer");
+
+        _isLineToolActive = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.None;
+        EditorCanvas.IsHitTestVisible = false; // Eliberăm harta
+
         MapContent.Cursor = Cursors.Hand;
-        _viewModel.StatusMessage = "Mod navigare: trage harta cu click stânga.";
+        _viewModel.StatusMessage = "Mod navigare: trage harta cu click stanga.";
     }
+
+    private static (Color color, double thickness, string label) GetDrawingMaterial(string tag) => tag switch
+    {
+        "ConcreteWall" => (Color.FromRgb(47, 79, 79), 8, "Zid Beton  -12 dBm"),
+        "BrickWall" => (Color.FromRgb(139, 69, 19), 5, "Caramida  -6 dBm"),
+        "WoodDoor" => (Color.FromRgb(205, 133, 63), 3, "Usa Lemn  -3 dBm"),
+        "Fridge" => (Color.FromRgb(0, 100, 200), 4, "Frigider  -15 dBm"),
+        "Microwave" => (Color.FromRgb(200, 50, 50), 4, "Microunde  -8 dBm"),
+        "TV" => (Color.FromRgb(150, 0, 200), 4, "Televizor  -5 dBm"),
+        _ => (Colors.Black, 6, "Perete standard  -10 dBm")
+    };
 
     private void ToolObstacle_Checked(object sender, RoutedEventArgs e)
     {
@@ -656,41 +757,79 @@ public partial class MainWindow : Window
         if (sender is not RadioButton rb) return;
         var tag = rb.Tag?.ToString() ?? "";
         UpdateActiveToolLabel(tag);
-        MapContent.Cursor = Cursors.Cross;
 
+        if (DrawingOverlayUI.Visibility == Visibility.Visible)
+        {
+            var (color, thickness, label) = GetDrawingMaterial(tag);
+            SetPenAttributes(color, thickness);
+            EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
+            EditorCanvas.IsHitTestVisible = true;
+            _isLineToolActive = false;
+            _viewModel.StatusMessage = $"Material selectat: {label} · Deseneaza pe schita";
+            return;
+        }
+
+        // Mod normal → plasam stamp pe harta
+        _isLineToolActive = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.None;
+        EditorCanvas.IsHitTestVisible = false; // Eliberăm harta
+
+        MapContent.Cursor = Cursors.Cross;
         string desc = tag switch
         {
-            "ConcreteWall" => "Zid Beton (−12 dBm)",
-            "BrickWall" => "Cărămidă (−6 dBm)",
-            "WoodDoor" => "Ușă Lemn (−3 dBm)",
-            "Fridge" => "Frigider (−15 dBm)",
-            "TV" => "Televizor (−5 dBm)",
-            "Microwave" => "Microunde (−8 dBm)",
+            "ConcreteWall" => "Zid Beton (-12 dBm)",
+            "BrickWall" => "Caramida (-6 dBm)",
+            "WoodDoor" => "Usa Lemn (-3 dBm)",
+            "Fridge" => "Frigider (-15 dBm)",
+            "TV" => "Televizor (-5 dBm)",
+            "Microwave" => "Microunde (-8 dBm)",
             "Router" => "Router Virtual",
             _ => tag
         };
-        _viewModel.StatusMessage = $"Click stânga pe hartă pentru a plasa: {desc}";
+        _viewModel.StatusMessage = $"Click stanga pe harta pentru a plasa: {desc}";
     }
 
     private void ToolDrawWall_Checked(object sender, RoutedEventArgs e)
     {
         if (_viewModel == null) return;
         UpdateActiveToolLabel("DrawWall");
-        Tool_Wall_Click(sender, e);
+
+        if (DrawingOverlayUI.Visibility != Visibility.Visible)
+            StartSketch_Click(null, null);
+
+        _isLineToolActive = false;
+        _isCalibrating = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
+        EditorCanvas.IsHitTestVisible = true;
+        SetPenAttributes(Colors.Black, 6);
     }
 
     private void ToolDrawLine_Checked(object sender, RoutedEventArgs e)
     {
         if (_viewModel == null) return;
         UpdateActiveToolLabel("DrawLine");
-        Tool_Line_Click(sender, e);
+
+        if (DrawingOverlayUI.Visibility != Visibility.Visible)
+            StartSketch_Click(null, null);
+
+        _isLineToolActive = true;
+        _isCalibrating = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.None;
+        EditorCanvas.IsHitTestVisible = true;
     }
 
     private void ToolEraser_Checked(object sender, RoutedEventArgs e)
     {
         if (_viewModel == null) return;
         UpdateActiveToolLabel("Eraser");
-        Tool_Eraser_Click(sender, e);
+
+        if (DrawingOverlayUI.Visibility != Visibility.Visible)
+            StartSketch_Click(null, null);
+
+        _isLineToolActive = false;
+        _isCalibrating = false;
+        EditorCanvas.EditingMode = InkCanvasEditingMode.EraseByStroke;
+        EditorCanvas.IsHitTestVisible = true;
     }
 
     #endregion
@@ -700,15 +839,13 @@ public partial class MainWindow : Window
         _isCalibrating = false;
         Mouse.OverrideCursor = null;
 
-        DrawingOverlay.Visibility = Visibility.Collapsed;
-
         double pixelDistance = Math.Sqrt(Math.Pow(end.X - start.X, 2) + Math.Pow(end.Y - start.Y, 2));
 
         if (pixelDistance < 50)
         {
-            MessageBox.Show("Linia este prea scurtă. Trage o linie mai lungă pentru o precizie mai bună.",
-                "Calibrare eșuată", MessageBoxButton.OK, MessageBoxImage.Warning);
-            _viewModel.StatusMessage = "Calibrare anulată (linie prea scurtă).";
+            MessageBox.Show("Linia este prea scurta. Trage o linie mai lunga pentru o precizie mai buna.",
+                "Calibrare esuata", MessageBoxButton.OK, MessageBoxImage.Warning);
+            _viewModel.StatusMessage = "Calibrare anulata (linie prea scurta).";
             return;
         }
 
@@ -721,47 +858,16 @@ public partial class MainWindow : Window
             _viewModel.PixelsPerMeter = pixelDistance / realMeters;
             _viewModel.IsCalibrated = true;
 
-            _viewModel.StatusMessage = $"✅ Calibrare reușită! Scara setată la: {_viewModel.PixelsPerMeter:F1} pixeli = 1 metru.";
+            _viewModel.StatusMessage = $"Calibrare reusita! Scara setata la: {_viewModel.PixelsPerMeter:F1} pixeli = 1 metru.";
             MessageBox.Show(
-                $"Calibrare completă!\n\nDistanța de {pixelDistance:F0} pixeli a fost mapată la {realMeters} metri.\n\n" +
-                $"Aplicația știe acum că 1 metru = {_viewModel.PixelsPerMeter:F0} pixeli.",
+                $"Calibrare completa!\n\nDistanta de {pixelDistance:F0} pixeli a fost mapata la {realMeters} metri.\n\n" +
+                $"Aplicatia stie acum ca 1 metru = {_viewModel.PixelsPerMeter:F0} pixeli.",
                 "Succes", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         else
         {
-            _viewModel.StatusMessage = "Calibrare anulată de utilizator.";
+            _viewModel.StatusMessage = "Calibrare anulata de utilizator.";
         }
-    }
-
-    private void Tool_Wall_Click(object sender, RoutedEventArgs e)
-    {
-        _isLineToolActive = false;
-        _isCalibrating = false;
-        EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
-        SetPenAttributes(Colors.Black, 6);
-    }
-
-    private void Tool_Detail_Click(object sender, RoutedEventArgs e)
-    {
-        _isLineToolActive = false;
-        _isCalibrating = false;
-        EditorCanvas.EditingMode = InkCanvasEditingMode.Ink;
-        SetPenAttributes(Colors.Gray, 2);
-    }
-
-    private void Tool_Eraser_Click(object sender, RoutedEventArgs e)
-    {
-        _isLineToolActive = false;
-        _isCalibrating = false;
-        EditorCanvas.EditingMode = InkCanvasEditingMode.EraseByStroke;
-    }
-
-    private void Tool_Line_Click(object sender, RoutedEventArgs e)
-    {
-        _isLineToolActive = true;
-        _isCalibrating = false;
-        EditorCanvas.EditingMode = InkCanvasEditingMode.None;
-        EditorCanvas.IsHitTestVisible = true;
     }
 
     private void SetPenAttributes(Color color, double thickness)
@@ -833,7 +939,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Adăugăm linia (peretele) pe canvas
         var stylusPointCollection = new StylusPointCollection();
         stylusPointCollection.Add(new StylusPoint(_startPoint.X, _startPoint.Y));
         stylusPointCollection.Add(new StylusPoint(endPoint.X, endPoint.Y));
@@ -843,82 +948,23 @@ public partial class MainWindow : Window
             DrawingAttributes = EditorCanvas.DefaultDrawingAttributes.Clone()
         };
         EditorCanvas.Strokes.Add(stroke);
-        // Scara e setată automat la intrarea în modul desen (20 px/m = 1 pătrățel)
-        // Nu mai deranjăm utilizatorul cu pop-up de calibrare la fiecare linie.
     }
-
-    private void SaveSketch_Click(object sender, RoutedEventArgs e)
-    {
-        int width = (int)EditorCanvas.ActualWidth;
-        int height = (int)EditorCanvas.ActualHeight;
-        if (width == 0 || height == 0) { width = 800; height = 600; }
-
-        // Renderăm PNG pentru FloorPlan
-        var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(
-            width, height, 96d, 96d, PixelFormats.Pbgra32);
-
-        var bg = new DrawingVisual();
-        using (var ctx = bg.RenderOpen())
-            ctx.DrawRectangle(Brushes.White, null, new Rect(0, 0, width, height));
-
-        rtb.Render(bg);
-        rtb.Render(EditorCanvas);
-        rtb.Render(ObjectsCanvas);
-        rtb.Freeze();
-
-        // Setăm PNG-ul ca FloorPlan activ
-        using (var stream = new System.IO.MemoryStream())
-        {
-            var enc = new PngBitmapEncoder();
-            enc.Frames.Add(BitmapFrame.Create(rtb));
-            enc.Save(stream);
-            stream.Position = 0;
-
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.StreamSource = stream;
-            bmp.EndInit();
-            bmp.Freeze();
-            _viewModel.FloorPlan = bmp;
-        }
-
-        DrawingOverlay.Visibility = Visibility.Collapsed;
-        _viewModel.StatusMessage = "Schița setată ca plan!";
-
-        // ✅ Întrebăm dacă vrea să salveze proiectul complet
-        var result = MessageBox.Show(
-            "Schița a fost setată ca plan!\n\nVrei să salvezi proiectul complet acum?\n" +
-            "(schiță + puncte + obstacole + calibrare)",
-            "Salvare Proiect",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (result == MessageBoxResult.Yes)
-            CollectSketchAndSave();
-    }
-
-    private void CancelSketch_Click(object sender, RoutedEventArgs e)
-    {
-        DrawingOverlay.Visibility = Visibility.Collapsed;
-        _viewModel.StatusMessage = "Desenare anulată.";
-    }
-
-    #endregion
 
     #region Stamp Objects (Router, Fridge, etc.)
 
-    // Mapare ElementType → emoji
-    private static string GetEmoji(ElementType type) => type switch
+    /// <summary>
+    /// Mapare ElementType → (icon kind, culoare) pentru PackIconMaterial.
+    /// </summary>
+    private static (PackIconMaterialKind kind, Color color) GetIconForType(ElementType type) => type switch
     {
-        ElementType.Router => "📡",
-        ElementType.Fridge => "❄️",
-        ElementType.Microwave => "📻",
-        ElementType.ConcreteWall => "🧱",
-        ElementType.BrickWall => "🧱",
-        ElementType.WoodDoor => "🚪",
-        ElementType.TV => "📺",
-        _ => "📦"
+        ElementType.Router => (PackIconMaterialKind.RouterWireless, Color.FromRgb(59, 130, 246)),
+        ElementType.Fridge => (PackIconMaterialKind.Fridge, Color.FromRgb(0, 100, 200)),
+        ElementType.Microwave => (PackIconMaterialKind.Microwave, Color.FromRgb(200, 50, 50)),
+        ElementType.ConcreteWall => (PackIconMaterialKind.Wall, Color.FromRgb(120, 120, 120)),
+        ElementType.BrickWall => (PackIconMaterialKind.Wall, Color.FromRgb(139, 69, 19)),
+        ElementType.WoodDoor => (PackIconMaterialKind.DoorOpen, Color.FromRgb(205, 133, 63)),
+        ElementType.TV => (PackIconMaterialKind.Television, Color.FromRgb(150, 0, 200)),
+        _ => (PackIconMaterialKind.CubeOutline, Color.FromRgb(180, 180, 180))
     };
 
     private void AddRouter_Click(object sender, RoutedEventArgs e)
@@ -933,27 +979,28 @@ public partial class MainWindow : Window
     private void AddConcreteWall_Click(object sender, RoutedEventArgs e)
         => AddElementToCanvas(ElementType.ConcreteWall);
 
-    /// <summary>
-    /// Creează un element vizual cu emoji și îl plasează la centrul canvas-ului.
-    /// Folosit de butoanele din Drawing Overlay toolbar.
-    /// </summary>
     private void AddElementToCanvas(ElementType type)
     {
-        var element = CreateEmojiElement(type);
+        var element = CreateIconElement(type);
         Canvas.SetLeft(element, 200);
         Canvas.SetTop(element, 200);
         ObjectsCanvas.Children.Add(element);
     }
 
     /// <summary>
-    /// Creează elementul vizual emoji (Border + TextBlock) pentru un tip de obstacol.
+    /// Creează elementul vizual cu PackIconMaterial pentru un tip de obstacol.
+    /// Înlocuiește complet vechea versiune cu emoji TextBlock.
     /// </summary>
-    private Border CreateEmojiElement(ElementType type)
+    private Border CreateIconElement(ElementType type)
     {
-        var tb = new TextBlock
+        var (kind, color) = GetIconForType(type);
+
+        var icon = new PackIconMaterial
         {
-            Text = GetEmoji(type),
-            FontSize = 24,
+            Kind = kind,
+            Width = 20,
+            Height = 20,
+            Foreground = new SolidColorBrush(color),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -966,10 +1013,10 @@ public partial class MainWindow : Window
             BorderBrush = new SolidColorBrush(Color.FromArgb(200, 0, 122, 204)),
             BorderThickness = new Thickness(1.5),
             CornerRadius = new CornerRadius(6),
-            Child = tb,
+            Child = icon,
             Cursor = Cursors.Hand,
             Tag = type,
-            ToolTip = $"{GetEmoji(type)}  {type}  (−{new MapElement { Type = type }.SignalPenalty} dBm)"
+            ToolTip = $"{type}  (-{new MapElement { Type = type }.SignalPenalty} dBm)"
         };
 
         border.MouseLeftButtonDown += Element_MouseDown;
@@ -1025,11 +1072,10 @@ public partial class MainWindow : Window
     #endregion
 
     /// <summary>
-    /// Desenează indicatorul vizual (cerc verde + stea) pentru poziția optimă a routerului.
+    /// Desenează indicatorul vizual (cerc verde + icon router) pentru poziția optimă.
     /// </summary>
     private void DrawOptimalRouterIndicator(Point pos)
     {
-        // Ștergem indicatorul vechi dacă există
         var oldIndicators = ObjectsCanvas.Children
             .OfType<FrameworkElement>()
             .Where(e => e.Tag as string == "OptimalRouter")
@@ -1037,8 +1083,7 @@ public partial class MainWindow : Window
         foreach (var old in oldIndicators)
             ObjectsCanvas.Children.Remove(old);
 
-        // Cerc exterior pulsant (verde transparent)
-        var outerRing = new System.Windows.Shapes.Ellipse
+        var outerRing = new Ellipse
         {
             Width = 56,
             Height = 56,
@@ -1049,8 +1094,7 @@ public partial class MainWindow : Window
             Tag = "OptimalRouter"
         };
 
-        // Cerc interior plin (verde semitransparent)
-        var innerCircle = new System.Windows.Shapes.Ellipse
+        var innerCircle = new Ellipse
         {
             Width = 40,
             Height = 40,
@@ -1060,15 +1104,16 @@ public partial class MainWindow : Window
             Tag = "OptimalRouter"
         };
 
-        // Steluță centrală
-        var star = new TextBlock
+        // ✅ Icon vectorial in loc de emoji
+        var routerIcon = new PackIconMaterial
         {
-            Text = "⭐",
-            FontSize = 18,
+            Kind = PackIconMaterialKind.RouterWireless,
+            Width = 20,
+            Height = 20,
+            Foreground = Brushes.LimeGreen,
             Tag = "OptimalRouter"
         };
 
-        // Etichetă "OPTIM"
         var label = new TextBlock
         {
             Text = "OPTIM",
@@ -1080,54 +1125,52 @@ public partial class MainWindow : Window
 
         Canvas.SetLeft(outerRing, pos.X - 28);
         Canvas.SetTop(outerRing, pos.Y - 28);
-
         Canvas.SetLeft(innerCircle, pos.X - 20);
         Canvas.SetTop(innerCircle, pos.Y - 20);
-
-        Canvas.SetLeft(star, pos.X - 11);
-        Canvas.SetTop(star, pos.Y - 13);
-
+        Canvas.SetLeft(routerIcon, pos.X - 10);
+        Canvas.SetTop(routerIcon, pos.Y - 10);
         Canvas.SetLeft(label, pos.X - 13);
         Canvas.SetTop(label, pos.Y + 21);
 
         ObjectsCanvas.Children.Add(outerRing);
         ObjectsCanvas.Children.Add(innerCircle);
-        ObjectsCanvas.Children.Add(star);
+        ObjectsCanvas.Children.Add(routerIcon);
         ObjectsCanvas.Children.Add(label);
 
         MessageBox.Show(
-            $"Am marcat cu ⭐ locul optim pentru router!\n\n" +
+            $"Am marcat pozitia optima pentru router!\n\n" +
             $"Coordonate: X={pos.X:F0}, Y={pos.Y:F0}\n\n" +
-            $"Algoritmul Min-Max a scanat întreg planul și a ales poziția care\n" +
-            $"garantează că cel mai izolat punct din casă primește semnal maxim,\n" +
-            $"luând în calcul toți pereții și obstacolele desenate.",
-            "Poziție Optimă Găsită",
+            $"Algoritmul Min-Max a scanat intreg planul si a ales pozitia care\n" +
+            $"garanteaza ca cel mai izolat punct din casa primeste semnal maxim,\n" +
+            $"luand in calcul toti peretii si obstacolele desenate.",
+            "Pozitie Optima Gasita",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
     }
 
     /// <summary>
-    /// Colectează schița curentă din EditorCanvas (ISF + PNG render),
-    /// apoi apelează SaveProjectWithSketch pe ViewModel.
-    /// Apelat atât din butonul "Salvare" cât și din "Salvează Schița".
+    /// Colectează schița curentă (ISF + PNG DPI-aware) și apelează SaveProjectWithSketch.
     /// </summary>
     private void CollectSketchAndSave()
     {
         System.Windows.Ink.StrokeCollection? strokes = null;
-        System.Windows.Media.Imaging.BitmapSource? png = null;
+        BitmapSource? png = null;
 
-        // Colectăm schița vectorială dacă există linii desenate
         if (EditorCanvas.Strokes.Count > 0)
         {
             strokes = EditorCanvas.Strokes;
 
-            // Renderăm PNG-ul schiței (fundal alb + linii + obiecte)
-            int w = (int)EditorCanvas.ActualWidth;
-            int h = (int)EditorCanvas.ActualHeight;
+            // ✅ DPI-aware render
+            var dpiInfo = VisualTreeHelper.GetDpi(MapContent);
+            int w = (int)(MapContent.ActualWidth * dpiInfo.DpiScaleX);
+            int h = (int)(MapContent.ActualHeight * dpiInfo.DpiScaleY);
+
             if (w > 0 && h > 0)
             {
-                var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(
-                    w, h, 96, 96, PixelFormats.Pbgra32);
+                var rtb = new RenderTargetBitmap(
+                    w, h,
+                    dpiInfo.PixelsPerInchX, dpiInfo.PixelsPerInchY,
+                    PixelFormats.Pbgra32);
 
                 var bg = new DrawingVisual();
                 using (var ctx = bg.RenderOpen())
@@ -1144,6 +1187,10 @@ public partial class MainWindow : Window
         _viewModel.SaveProjectWithSketch(strokes, png);
     }
 
+
+    #endregion
+
+
     protected override void OnClosed(EventArgs e)
     {
         WeakReferenceMessenger.Default.Unregister<ClearSurveyPointsMessage>(this);
@@ -1151,7 +1198,7 @@ public partial class MainWindow : Window
         WeakReferenceMessenger.Default.Unregister<RedrawMapElementsMessage>(this);
         WeakReferenceMessenger.Default.Unregister<RestoreSketchMessage>(this);
         WeakReferenceMessenger.Default.Unregister<RequestSaveWithSketchMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<RequestOptimalRouterMessage>(this); // ✅ NOU
+        WeakReferenceMessenger.Default.Unregister<RequestOptimalRouterMessage>(this);
         WeakReferenceMessenger.Default.Unregister<RequestHeatmapGenerationMessage>(this);
         base.OnClosed(e);
     }
@@ -1159,6 +1206,5 @@ public partial class MainWindow : Window
 
 /// <summary>
 /// Punct simplu pentru HeatmapService — X, Y și semnalul filtrat per rețea.
-/// Separat de SurveyPoint (care e immutable/init-only) pentru a permite filtrarea per SSID.
 /// </summary>
 public sealed record HeatmapPoint(double X, double Y, int SignalStrength);

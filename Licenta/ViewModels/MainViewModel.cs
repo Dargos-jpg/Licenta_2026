@@ -345,12 +345,38 @@ public sealed partial class MainViewModel : ObservableObject
                 IsCalibrated = projectData.IsCalibrated;
                 SurveyPointCount = _surveyPoints.Count;
 
+                // ✅ NOU: Reconstruim VisibleNetworks din datele salvate în puncte
+                var networksFromSave = _surveyPoints
+                    .SelectMany(p => p.DetectedNetworks)
+                    .GroupBy(n => n.SSID)
+                    .Select(g => new WifiNetwork
+                    {
+                        SSID = g.Key,
+                        BSSID = g.First().BSSID,
+                        SignalStrength = (int)g.Average(n => n.SignalStrength),
+                        Channel = g.First().Channel
+                    })
+                    .OrderByDescending(n => n.SignalStrength)
+                    .ToList();
+
+                VisibleNetworks.Clear();
+                foreach (var net in networksFromSave)
+                    VisibleNetworks.Add(net);
+
+                // Auto-selectăm rețeaua cu cel mai bun semnal
+                if (VisibleNetworks.Count > 0)
+                    SelectedNetwork = VisibleNetworks[0];
+
                 string calibrareInfo = IsCalibrated
                     ? $" | Scară: {PixelsPerMeter:F1} px/m"
                     : " | Fără calibrare";
 
-                StatusMessage = $"Proiect încărcat! ({_surveyPoints.Count} puncte, " +
-                                $"{_mapElements.Count} obstacole{calibrareInfo})";
+                string reteleInfo = VisibleNetworks.Count > 0
+                    ? $", {VisibleNetworks.Count} rețele restaurate"
+                    : "";
+
+                StatusMessage = $"Proiect încărcat! ({_surveyPoints.Count} puncte" +
+                                $"{reteleInfo}{calibrareInfo})";
 
                 WeakReferenceMessenger.Default.Send(new ClearSurveyPointsMessage());
                 WeakReferenceMessenger.Default.Send(new RedrawSurveyPointsMessage(_surveyPoints));
@@ -358,11 +384,9 @@ public sealed partial class MainViewModel : ObservableObject
                 if (_mapElements.Count > 0)
                     WeakReferenceMessenger.Default.Send(new RedrawMapElementsMessage(_mapElements));
 
-                // Dacă există schiță vectorială, o restaurăm pe EditorCanvas
                 if (strokes != null)
                     WeakReferenceMessenger.Default.Send(new RestoreSketchMessage(strokes));
 
-                // Dacă există PNG schiță salvat, îl restaurăm ca FloorPlan via MapService
                 if (!string.IsNullOrEmpty(projectData.SketchPngBase64) && FloorPlan == null)
                 {
                     var restoredPlan = await _mapService.LoadFromBase64Async(projectData.SketchPngBase64);
@@ -370,7 +394,8 @@ public sealed partial class MainViewModel : ObservableObject
                         FloorPlan = restoredPlan;
                 }
 
-                if (FloorPlan != null && _surveyPoints.Count >= 2)
+                // ✅ GenerateHeatmap merge acum — SelectedNetwork nu mai e null
+                if (FloorPlan != null && _surveyPoints.Count >= 2 && SelectedNetwork != null)
                     GenerateHeatmap();
             }
             else
