@@ -15,6 +15,11 @@ using WifiSignalOptimizer.Services;
 namespace WifiSignalOptimizer.ViewModels;
 
 /// <summary>
+/// Modul de vizualizare al zonei centrale.
+/// </summary>
+public enum CentralViewMode { Normal, Optimized, Doctor }
+
+/// <summary>
 /// Main ViewModel for the application following strict MVVM pattern
 /// </summary>
 public sealed partial class MainViewModel : ObservableObject
@@ -60,6 +65,44 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isExpertMode = false;
 
+    // === VIEW SWITCHING ===
+    [ObservableProperty]
+    private CentralViewMode _centralViewMode = CentralViewMode.Normal;
+
+    [ObservableProperty]
+    private bool _isOptimizationDone = false;
+
+    [ObservableProperty]
+    private ImageSource? _optimizedHeatmapOverlay;
+
+    [ObservableProperty]
+    private NetworkHealthReport? _doctorReport;
+
+    [ObservableProperty]
+    private bool _isAnalyzingDoctor = false;
+
+    public bool IsNormalViewActive => CentralViewMode == CentralViewMode.Normal;
+    public bool IsOptimizedViewActive => CentralViewMode == CentralViewMode.Optimized;
+    public bool IsDoctorViewActive => CentralViewMode == CentralViewMode.Doctor;
+    public bool ShowDoctorNoNetwork => IsDoctorViewActive && !IsAnalyzingDoctor && DoctorReport == null && SelectedNetwork == null;
+
+    partial void OnCentralViewModeChanged(CentralViewMode value)
+    {
+        OnPropertyChanged(nameof(IsNormalViewActive));
+        OnPropertyChanged(nameof(IsOptimizedViewActive));
+        OnPropertyChanged(nameof(IsDoctorViewActive));
+        OnPropertyChanged(nameof(ShowDoctorNoNetwork));
+    }
+
+    partial void OnIsAnalyzingDoctorChanged(bool value) => OnPropertyChanged(nameof(ShowDoctorNoNetwork));
+    partial void OnDoctorReportChanged(NetworkHealthReport? value) => OnPropertyChanged(nameof(ShowDoctorNoNetwork));
+
+    partial void OnSelectedNetworkChanged(WifiNetwork? value)
+    {
+        // Resetăm raportul doctor când schimbăm rețeaua
+        DoctorReport = null;
+    }
+
     public string AutoScanButtonText => IsAutoScanning ? "⏸️ Stop Auto-Scan" : "▶️ Start Auto-Scan";
 
     public MainViewModel(IWifiScannerService wifiScanner, IMapService mapService)
@@ -91,9 +134,24 @@ public sealed partial class MainViewModel : ObservableObject
 
             if (bitmap != null)
             {
+                // Reset complet înainte de noul plan (curăță tot statul anterior)
+                _surveyPoints.Clear();
+                _mapElements.Clear();
+                SurveyPointCount   = 0;
+                HeatmapOverlay     = null;
+                OptimizedHeatmapOverlay = null;
+                IsOptimizationDone = false;
+                CentralViewMode    = CentralViewMode.Normal;
+                DoctorReport       = null;
+                IsCalibrated       = false;
+                PixelsPerMeter     = 50.0;
+
                 FloorPlan = bitmap;
                 StatusMessage = $"Plan încărcat: {Path.GetFileName(dialog.FileName)}";
-                HeatmapOverlay = null;
+
+                // Curăță canvas-urile vizuale (survey points, stampile, pereți desenați)
+                WeakReferenceMessenger.Default.Send(new ClearSurveyPointsMessage());
+                WeakReferenceMessenger.Default.Send(new ResetMapCanvasMessage());
             }
             else
             {
@@ -193,34 +251,66 @@ public sealed partial class MainViewModel : ObservableObject
                        $"- {VisibleNetworks.Count} rețele detectate";
     }
 
- [RelayCommand]
+    [RelayCommand]
     private void AnalyzeNetwork()
     {
         if (SelectedNetwork == null)
         {
-            MessageBox.Show("Te rog să selectezi o rețea din tabelul din stânga pentru a o analiza!",
-                            "Atenție", MessageBoxButton.OK, MessageBoxImage.Warning);
+            StatusMessage = "Selectează o rețea din panoul din stânga pentru a rula diagnosticul.";
             return;
         }
 
         try
         {
+            IsAnalyzingDoctor = true;
             StatusMessage = "Analizăm rețeaua folosind Machine Learning...";
 
             var doctor = new WifiDoctorService();
-            // Acum returnează noul tău NetworkHealthReport
-            var report = doctor.AnalyzeNetwork(SelectedNetwork, VisibleNetworks.ToList().AsReadOnly());
+            DoctorReport = doctor.AnalyzeNetwork(SelectedNetwork, VisibleNetworks.ToList().AsReadOnly());
 
-            StatusMessage = "Analiză completă.";
-            
-            // Deschidem fereastra modernă de raport și îi trimitem datele
-            var doctorWindow = new Views.DoctorReportWindow(report);
-            doctorWindow.Owner = Application.Current.MainWindow; 
-            doctorWindow.ShowDialog();
+            StatusMessage = $"Diagnostic complet pentru '{SelectedNetwork.SSID}'. Scor sănătate: {DoctorReport.OverallHealthScore}/100.";
+            CentralViewMode = CentralViewMode.Doctor;
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Eroare AI: {ex.Message}", "Eroare", MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusMessage = $"Eroare diagnostic AI: {ex.Message}";
+        }
+        finally
+        {
+            IsAnalyzingDoctor = false;
+        }
+    }
+
+    [RelayCommand]
+    private void SwitchToNormalView()
+    {
+        CentralViewMode = CentralViewMode.Normal;
+        StatusMessage = "Vizualizare: Heatmap normal.";
+    }
+
+    [RelayCommand]
+    private void SwitchToOptimizedView()
+    {
+        if (!IsOptimizationDone)
+        {
+            StatusMessage = "Rulați mai întâi 'Poziție Optimă Router' pentru a vedea simularea.";
+            return;
+        }
+        CentralViewMode = CentralViewMode.Optimized;
+        StatusMessage = "Vizualizare: Simulare semnal cu router la poziția optimă.";
+    }
+
+    [RelayCommand]
+    private void SwitchToDoctorView()
+    {
+        CentralViewMode = CentralViewMode.Doctor;
+        if (SelectedNetwork == null)
+        {
+            StatusMessage = "Selectează o rețea din panoul din stânga pentru a rula diagnosticul.";
+        }
+        else if (DoctorReport == null)
+        {
+            AnalyzeNetwork();
         }
     }
 
@@ -434,8 +524,10 @@ public sealed partial class MainViewModel : ObservableObject
         double width = FloorPlan.PixelWidth;
         double height = FloorPlan.PixelHeight;
 
-        // ✅ Trimitem mesajul către MainWindow să preia liniile și să ruleze AI-ul
-        WeakReferenceMessenger.Default.Send(new RequestOptimalRouterMessage(width, height, scara));
+        // Trimitem canalul și SSID-ul rețelei selectate (bandă + calibrare TX power)
+        int    channel = SelectedNetwork?.Channel ?? 0;
+        string? ssid   = SelectedNetwork?.SSID;
+        WeakReferenceMessenger.Default.Send(new RequestOptimalRouterMessage(width, height, scara, channel, ssid));
     }
 
     [RelayCommand]
@@ -489,16 +581,25 @@ public sealed class RequestSaveWithSketchMessage
 {
 }
 
+/// <summary>
+/// Cere MainWindow să reseteze canvas-urile vizuale (pereți, stampile, transforms).
+/// </summary>
+public sealed class ResetMapCanvasMessage
+{
+}
+
 // ✅ NOU: Mesaj pentru calcul poziție optimă router
 public sealed class RequestOptimalRouterMessage
 {
-    public double Width { get; }
-    public double Height { get; }
-    public double Scale { get; }
+    public double Width   { get; }
+    public double Height  { get; }
+    public double  Scale      { get; }
+    public int     Channel    { get; }   // canal WiFi → determină banda (2.4/5/6 GHz)
+    public string? TargetSSID { get; }   // SSID-ul rețelei selectate, pt calibrare TX power
 
-    public RequestOptimalRouterMessage(double w, double h, double scale)
+    public RequestOptimalRouterMessage(double w, double h, double scale, int channel, string? ssid)
     {
-        Width = w; Height = h; Scale = scale;
+        Width = w; Height = h; Scale = scale; Channel = channel; TargetSSID = ssid;
     }
 }
 
@@ -512,5 +613,15 @@ public sealed class RequestHeatmapGenerationMessage
     public RequestHeatmapGenerationMessage(int w, int h, double scale, string targetSsid)
     {
         Width = w; Height = h; Scale = scale; TargetSSID = targetSsid;
+    }
+}
+
+public sealed class OptimizedHeatmapReadyMessage
+{
+    public System.Windows.Point OptimalPosition { get; }
+
+    public OptimizedHeatmapReadyMessage(System.Windows.Point pos)
+    {
+        OptimalPosition = pos;
     }
 }

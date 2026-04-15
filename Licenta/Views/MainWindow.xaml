@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+        xmlns:views="clr-namespace:WifiSignalOptimizer.Views"
         mc:Ignorable="d"
         Title="WiFi Signal Optimizer"
         Height="820" Width="1400"
@@ -80,6 +81,72 @@
             <Setter Property="Fill"    Value="{StaticResource BorderBrush}"/>
             <Setter Property="Margin"  Value="10,0,10,6"/>
             <Setter Property="Opacity" Value="0.5"/>
+        </Style>
+
+        <!-- Buton circular "i" pentru mini-ajutor -->
+        <Style x:Key="InfoButton" TargetType="Button">
+            <Setter Property="Width"           Value="15"/>
+            <Setter Property="Height"          Value="15"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Help"/>
+            <Setter Property="Padding"         Value="0"/>
+            <Setter Property="Margin"          Value="4,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Focusable"       Value="False"/>
+            <Setter Property="ToolTipService.InitialShowDelay" Value="200"/>
+            <Setter Property="ToolTipService.ShowDuration"     Value="9000"/>
+            <Setter Property="ToolTipService.Placement"        Value="Right"/>
+            <Setter Property="ToolTipService.ShowOnDisabled"   Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" CornerRadius="8" Width="15" Height="15"
+                                Background="#12213A" BorderBrush="#3B82F6" BorderThickness="1">
+                            <TextBlock Text="i" FontSize="8" FontWeight="Bold" FontFamily="Segoe UI"
+                                       Foreground="#3B82F6" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1E3A5F"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#60A5FA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Buton item meniu Opțiuni -->
+        <Style x:Key="OptionsMenuItem" TargetType="Button">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{StaticResource TextSecondary}"/>
+            <Setter Property="FontSize"        Value="12"/>
+            <Setter Property="FontFamily"      Value="Segoe UI"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="14,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BgHover}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource TextDisabled}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -214,13 +281,21 @@
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="10,2,10,8">
-                            <Button Style="{StaticResource SidebarButton}" Command="{Binding LoadMapCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconMaterial Kind="FolderOpen" Width="13" Height="13"
-                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Încarcă Plan" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource SidebarButton}" Command="{Binding LoadMapCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="FolderOpen" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Încarcă Plan" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                        ToolTip="Încarcă o imagine (PNG/JPG) a planului casei sau biroului. Aceasta va fi baza pe care vei plasa puncte de măsurare și obstacole."/>
+                            </Grid>
                             <Button Style="{StaticResource SidebarButton}" Click="StartSketch_Click">
                                 <StackPanel Orientation="Horizontal">
                                     <iconPacks:PackIconMaterial Kind="PencilBox" Width="13" Height="13"
@@ -228,9 +303,9 @@
                                     <TextBlock Text="Creează Schiță Nouă" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
-                            <Button Click="StartCalibration_Click">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                            <Grid>
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
                                         <Setter Property="Visibility" Value="Collapsed"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
@@ -238,13 +313,18 @@
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconMaterial Kind="RulerSquare" Width="13" Height="13"
-                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Calibrează Scara" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Click="StartCalibration_Click" Style="{StaticResource SidebarButton}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="RulerSquare" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Calibrează Scara" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                        ToolTip="Calibrează scara planului. Trage o linie peste o distanță cunoscută (ex: un perete de 4m) și introdu distanța reală. Fără calibrare, heatmap-ul folosește o scară estimată de 50 px/m."/>
+                            </Grid>
 
                             <Border Margin="2,4,0,0">
                                 <Border.Style>
@@ -287,23 +367,33 @@
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="10,2,10,8">
-                            <Button Style="{StaticResource SidebarButton}"
-                                    Command="{Binding ScanCommand}"
-                                    IsEnabled="{Binding IsScanning, Converter={StaticResource InvertBoolConverter}}">
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconMaterial Kind="WifiRefresh" Width="13" Height="13"
-                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Scanează Rețele" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButton}"
-                                    Command="{Binding AnalyzeNetworkCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconMaterial Kind="Stethoscope" Width="13" Height="13"
-                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Diagnostichează Rețeaua" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource SidebarButton}"
+                                        Command="{Binding ScanCommand}"
+                                        IsEnabled="{Binding IsScanning, Converter={StaticResource InvertBoolConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="WifiRefresh" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Scanează Rețele" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                        ToolTip="Scanează rețelele WiFi disponibile. Detectează SSID, puterea semnalului (dBm) și canalul. Efectuează mai multe scanări pentru date mai precise."/>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource SidebarButton}"
+                                        Command="{Binding AnalyzeNetworkCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="Stethoscope" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Diagnostichează Rețeaua" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                        ToolTip="Deschide Doctor WiFi în zona centrală. Analizează interferențele cu K-Means (ML) și oferă recomandări. Selectează mai întâi o rețea din listă."/>
+                            </Grid>
                             <Button Command="{Binding ToggleAutoScanCommand}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
@@ -432,23 +522,32 @@
                                        Margin="4,0,0,0"/>
                         </Expander.Header>
                         <StackPanel Margin="10,2,10,8">
-                            <Button Style="{StaticResource SidebarButton}"
-                                    Command="{Binding GenerateHeatmapCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconMaterial Kind="LayersTriple" Width="13" Height="13"
-                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Generează Heatmap" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Style="{StaticResource SidebarButton}"
-                                    Command="{Binding CalculateOptimalRouterCommand}"
-                                    ToolTip="Algoritmul Min-Max garantează semnal uniform în toată casa.">
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconMaterial Kind="RouterWireless" Width="13" Height="13"
-                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Poziție Optimă Router (Min-Max)" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource SidebarButton}"
+                                        Command="{Binding GenerateHeatmapCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="LayersTriple" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Generează Heatmap" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                        ToolTip="Generează harta de intensitate semnal WiFi (heatmap). Verde = semnal excelent (>-50 dBm), Galben = mediu (-50 la -70 dBm), Roșu = slab (&lt;-70 dBm). Necesită minim 2 puncte de măsurare și o rețea selectată."/>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource SidebarButton}"
+                                        Command="{Binding CalculateOptimalRouterCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="RouterWireless" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Poziție Optimă Router (Min-Max)" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                        ToolTip="Algoritmul Min-Max (AI Multi-Criteria) calculează poziția care garantează semnal uniform în toată casa. Ia în calcul pereții, obstacolele și distanțele. După rulare, apare vizualizarea 'Heatmap Optimizat' cu simularea semnalului nou."/>
+                            </Grid>
                         </StackPanel>
                     </Expander>
 
@@ -467,22 +566,32 @@
                                     <ColumnDefinition Width="6"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <Button Grid.Column="0" Style="{StaticResource AccentButton}"
-                                        Command="{Binding SaveProjectCommand}" Padding="8,7">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="ContentSave" Width="13" Height="13"
-                                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <TextBlock Text="Salvare" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Grid.Column="2" Style="{StaticResource SidebarButton}"
-                                        Command="{Binding LoadProjectCommand}" Padding="8,7">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="TrayArrowDown" Width="13" Height="13"
-                                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <TextBlock Text="Încărcare" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
+                                <Grid Grid.Column="0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Style="{StaticResource AccentButton}"
+                                            Command="{Binding SaveProjectCommand}" Padding="8,7">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconMaterial Kind="ContentSave" Width="13" Height="13"
+                                                                        VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Salvare" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                            ToolTip="Salvează proiectul curent: puncte de măsurare, obstacole, calibrare și schița planului. Fișierul XML poate fi reîncărcat ulterior pentru a continua lucrul."/>
+                                </Grid>
+                                <Grid Grid.Column="2">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Style="{StaticResource SidebarButton}"
+                                            Command="{Binding LoadProjectCommand}" Padding="8,7">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconMaterial Kind="TrayArrowDown" Width="13" Height="13"
+                                                                        VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Încărcare" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                            ToolTip="Încarcă un proiect salvat anterior. Restaurează automat punctele, obstacolele, calibrarea și generează heatmap-ul dacă sunt date suficiente."/>
+                                </Grid>
                             </Grid>
                             <Button Style="{StaticResource DangerButton}"
                                     Command="{Binding ClearSurveyPointsCommand}">
@@ -529,193 +638,423 @@
                     Background="{StaticResource BgSection}"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="0,0,0,1" Padding="16,9">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Hartă Plan de Încadrare"
-                               FontSize="12" FontFamily="Segoe UI"
-                               FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"
-                               VerticalAlignment="Center"/>
+                <Grid>
+                    <!-- Stânga: info hartă + tool activ + rețea -->
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Hartă Plan de Încadrare"
+                                   FontSize="12" FontFamily="Segoe UI"
+                                   FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"
+                                   VerticalAlignment="Center"/>
 
-                    <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
+                        <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
 
-                    <Border Background="#1A1A2E" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding SurveyPointCount, StringFormat='{}{0} puncte'}"
-                                   FontSize="10" FontFamily="Consolas"
-                                   Foreground="{StaticResource TextMuted}"/>
+                        <Border Background="#1A1A2E" CornerRadius="4" Padding="8,3" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SurveyPointCount, StringFormat='{}{0} puncte'}"
+                                       FontSize="10" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextMuted}"/>
+                        </Border>
+
+                        <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse Width="5" Height="5" Fill="{StaticResource Accent}"
+                                     VerticalAlignment="Center" Margin="0,0,6,0">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#3B82F6" BlurRadius="5" ShadowDepth="0"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock x:Name="ActiveToolLabel"
+                                       Text="Punct Masurare activ"
+                                       FontSize="11" FontFamily="Segoe UI"
+                                       Foreground="{StaticResource Accent}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Kind="Wifi" Width="13" Height="13"
+                                                        VerticalAlignment="Center" Margin="0,0,6,0"
+                                                        Foreground="{StaticResource TextMuted}"/>
+                            <TextBlock Text="Rețea: "
+                                       FontSize="11" FontFamily="Segoe UI"
+                                       Foreground="{StaticResource TextMuted}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding SelectedNetwork.SSID,
+                                               TargetNullValue='Nicio retea selectata',
+                                               FallbackValue='Nicio retea selectata'}"
+                                       FontSize="11" FontFamily="Segoe UI" FontWeight="Bold"
+                                       Foreground="{StaticResource Accent}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Dreapta: meniu Opțiuni (hover dropdown) -->
+                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                        <!-- Meniu Opțiuni hover-activated -->
+                        <Border x:Name="OptionsMenuTrigger"
+                                MouseEnter="OptionsMenuTrigger_MouseEnter"
+                                MouseLeave="OptionsMenuTrigger_MouseLeave"
+                                Cursor="Hand" CornerRadius="5" Padding="10,5"
+                                VerticalAlignment="Center">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource BgHover}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="ViewDashboard" Width="13" Height="13"
+                                                            VerticalAlignment="Center" Margin="0,0,6,0"
+                                                            Foreground="{StaticResource TextSecondary}"/>
+                                <TextBlock Text="Vizualizare" FontSize="11" FontFamily="Segoe UI"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                                <iconPacks:PackIconMaterial Kind="ChevronDown" Width="10" Height="10"
+                                                            VerticalAlignment="Center" Margin="4,0,0,0"
+                                                            Foreground="{StaticResource TextMuted}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Popup meniu -->
+                        <Popup x:Name="OptionsPopup"
+                               PlacementTarget="{Binding ElementName=OptionsMenuTrigger}"
+                               Placement="Bottom"
+                               StaysOpen="True"
+                               AllowsTransparency="True">
+                            <Border Background="{StaticResource BgPanel}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1" CornerRadius="7" Padding="5"
+                                    MinWidth="220"
+                                    MouseEnter="OptionsPopupContent_MouseEnter"
+                                    MouseLeave="OptionsPopupContent_MouseLeave">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.5"/>
+                                </Border.Effect>
+                                <StackPanel>
+                                    <!-- Label secțiune -->
+                                    <TextBlock Text="VIZUALIZARE CENTRALĂ" FontSize="9" FontFamily="Consolas"
+                                               FontWeight="Bold" Foreground="{StaticResource TextMuted}"
+                                               Margin="10,6,10,4"/>
+                                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="5,0,5,4" Opacity="0.5"/>
+
+                                    <!-- Heatmap Normal -->
+                                    <Button Style="{StaticResource OptionsMenuItem}"
+                                            Click="OptionsMenuNormal_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconMaterial Kind="LayersTriple" Width="14" Height="14"
+                                                                        VerticalAlignment="Center" Margin="0,0,10,0"
+                                                                        Foreground="{StaticResource Accent}"/>
+                                            <StackPanel>
+                                                <TextBlock Text="Heatmap Normal" FontSize="12"/>
+                                                <TextBlock Text="Vizualizare semnal curent" FontSize="10"
+                                                           Foreground="{StaticResource TextMuted}"/>
+                                            </StackPanel>
+                                            <!-- Indicator activ -->
+                                            <iconPacks:PackIconMaterial Kind="Check" Width="12" Height="12"
+                                                                        VerticalAlignment="Center" Margin="12,0,0,0"
+                                                                        Foreground="{StaticResource Accent}"
+                                                                        Visibility="{Binding IsNormalViewActive, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Heatmap Optimizat -->
+                                    <Button Style="{StaticResource OptionsMenuItem}"
+                                            Click="OptionsMenuOptimized_Click"
+                                            IsEnabled="{Binding IsOptimizationDone}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconMaterial Kind="RouterWireless" Width="14" Height="14"
+                                                                        VerticalAlignment="Center" Margin="0,0,10,0"
+                                                                        Foreground="#22C55E"/>
+                                            <StackPanel>
+                                                <TextBlock Text="Heatmap Optimizat" FontSize="12"/>
+                                                <TextBlock FontSize="10" Foreground="{StaticResource TextMuted}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="Simulare router la poziție optimă"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsOptimizationDone}" Value="False">
+                                                                    <Setter Property="Text" Value="Rulați optimizarea mai întâi"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <iconPacks:PackIconMaterial Kind="Check" Width="12" Height="12"
+                                                                        VerticalAlignment="Center" Margin="12,0,0,0"
+                                                                        Foreground="#22C55E"
+                                                                        Visibility="{Binding IsOptimizedViewActive, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="5,4,5,4" Opacity="0.5"/>
+
+                                    <!-- Doctor WiFi -->
+                                    <Button Style="{StaticResource OptionsMenuItem}"
+                                            Click="OptionsMenuDoctor_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconMaterial Kind="Stethoscope" Width="14" Height="14"
+                                                                        VerticalAlignment="Center" Margin="0,0,10,0"
+                                                                        Foreground="#F97316"/>
+                                            <StackPanel>
+                                                <TextBlock Text="Doctor WiFi" FontSize="12"/>
+                                                <TextBlock Text="Diagnostic rețea cu AI" FontSize="10"
+                                                           Foreground="{StaticResource TextMuted}"/>
+                                            </StackPanel>
+                                            <iconPacks:PackIconMaterial Kind="Check" Width="12" Height="12"
+                                                                        VerticalAlignment="Center" Margin="12,0,0,0"
+                                                                        Foreground="#F97316"
+                                                                        Visibility="{Binding IsDoctorViewActive, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ═══════════════════════════════════════════════════════ -->
+            <!-- ZONA CENTRALĂ — 3 MODURI DE VIZUALIZARE              -->
+            <!-- ═══════════════════════════════════════════════════════ -->
+            <Grid Grid.Row="1">
+
+                <!-- ══ MOD 1: HEATMAP NORMAL (vizualizare curentă) ══ -->
+                <Grid Visibility="{Binding IsNormalViewActive, Converter={StaticResource BoolToVis}}">
+
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Background="{StaticResource BgBase}">
+                        <Canvas x:Name="MapCanvas"
+                                MouseWheel="MapCanvas_MouseWheel"
+                                Background="Transparent">
+
+                            <Grid x:Name="MapContent"
+                                  MouseLeftButtonDown="MapContent_MouseLeftButtonDown"
+                                  MouseRightButtonDown="MapContent_MouseRightButtonDown"
+                                  MouseMove="MapContent_MouseMove"
+                                  MouseLeftButtonUp="MapContent_MouseLeftButtonUp"
+                                  Background="Transparent"
+                                  Cursor="Cross">
+
+                                <Border x:Name="GridBackground"
+                                        Background="{StaticResource GridBrush}"
+                                        Opacity="0.5" Panel.ZIndex="0"
+                                        Visibility="Collapsed" />
+
+                                <Image x:Name="FloorPlanImage"
+                                       Source="{Binding FloorPlan}"
+                                       Stretch="Uniform"
+                                       HorizontalAlignment="Left"
+                                       VerticalAlignment="Top" Panel.ZIndex="1"/>
+
+                                <Image Source="{Binding HeatmapOverlay}"
+                                       Width="{Binding ElementName=FloorPlanImage, Path=ActualWidth}"
+                                       Height="{Binding ElementName=FloorPlanImage, Path=ActualHeight}"
+                                       Stretch="Fill" IsHitTestVisible="False" Opacity="0.7" Panel.ZIndex="2"/>
+
+                                <InkCanvas x:Name="EditorCanvas"
+                                           Background="Transparent"
+                                           MouseLeftButtonDown="EditorCanvas_MouseDown"
+                                           MouseMove="EditorCanvas_MouseMove"
+                                           MouseLeftButtonUp="EditorCanvas_MouseUp"
+                                           Panel.ZIndex="3"
+                                           EditingMode="None">
+                                    <InkCanvas.DefaultDrawingAttributes>
+                                        <DrawingAttributes Color="#C8D6F0" Height="3" Width="3" FitToCurve="False"/>
+                                    </InkCanvas.DefaultDrawingAttributes>
+                                </InkCanvas>
+
+                                <Line x:Name="PreviewLine"
+                                      Stroke="#3B82F6" StrokeThickness="1.5"
+                                      Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="4"/>
+
+                                <Canvas x:Name="SurveyPointsCanvas" Background="Transparent" Panel.ZIndex="5" IsHitTestVisible="False"/>
+                                <Canvas x:Name="ObjectsCanvas" Background="{x:Null}" IsHitTestVisible="True" Panel.ZIndex="6"/>
+                            </Grid>
+                        </Canvas>
+                    </ScrollViewer>
+
+                    <!-- Overlay modul desenare -->
+                    <Grid x:Name="DrawingOverlayUI" Visibility="Collapsed">
+                        <Border VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                                Margin="0,0,0,16" Background="{StaticResource BgSection}"
+                                CornerRadius="6" Padding="14,7"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                Panel.ZIndex="200">
+                            <TextBlock Text="Selectează materialul din dreapta · Salvează Schița când ești gata"
+                                       Foreground="{StaticResource TextMuted}" FontSize="10" FontFamily="Consolas"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right"
+                                    Orientation="Horizontal" Margin="0,14,24,0"
+                                    Panel.ZIndex="200" IsHitTestVisible="True">
+                            <Button Click="SaveSketch_Click" Style="{StaticResource AccentButton}" Padding="12,8" Margin="0,0,6,0" FontSize="11">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="ContentSave" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                    <TextBlock Text="Salvează Schița" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Click="CancelSketch_Click" Style="{StaticResource DangerButton}" Padding="12,8" FontSize="11">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="Close" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                    <TextBlock Text="Anulează" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Comenzi rapide (vizibil când există plan) -->
+                    <Border Background="{StaticResource BgSection}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,14" Margin="16"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Visibility="{Binding FloorPlan, Converter={StaticResource InvertNullToVisibilityConverter}}">
+                        <Border.Effect>
+                            <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.4"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="COMENZI RAPIDE" FontWeight="Bold" FontSize="9"
+                                       FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,0,0,8"/>
+                            <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="Scroll  →  Zoom In/Out"/>
+                            <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="Drag    →  Mută harta"/>
+                            <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="R / Shift+R  →  Rotire"/>
+                            <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="ESC  →  Resetează poziția"/>
+                            <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,6" Opacity="0.5"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="4" Height="4" Fill="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource Accent}"
+                                           Text="Click stânga  →  Acțiunea uneltei active"/>
+                            </StackPanel>
+                        </StackPanel>
                     </Border>
 
-                    <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
-
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse Width="5" Height="5" Fill="{StaticResource Accent}"
-                                 VerticalAlignment="Center" Margin="0,0,6,0">
-                            <Ellipse.Effect>
-                                <DropShadowEffect Color="#3B82F6" BlurRadius="5" ShadowDepth="0"/>
-                            </Ellipse.Effect>
-                        </Ellipse>
-                        <TextBlock x:Name="ActiveToolLabel"
-                                   Text="Punct Masurare activ"
-                                   FontSize="11" FontFamily="Segoe UI"
-                                   Foreground="{StaticResource Accent}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
-
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <iconPacks:PackIconMaterial Kind="Wifi" Width="13" Height="13"
-                                                    VerticalAlignment="Center" Margin="0,0,6,0"
-                                                    Foreground="{StaticResource TextMuted}"/>
-                        <TextBlock Text="Retea analizata: "
+                    <!-- Empty state (niciun plan) -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="{Binding FloorPlan, Converter={StaticResource NullToVisibilityConverter}}">
+                        <Border Width="80" Height="80" CornerRadius="40"
+                                Background="#151518" Margin="0,0,0,16" HorizontalAlignment="Center">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#3B82F6" BlurRadius="20" ShadowDepth="0" Opacity="0.2"/>
+                            </Border.Effect>
+                            <iconPacks:PackIconMaterial Kind="FloorPlan" Width="36" Height="36"
+                                                       Foreground="#3B82F6"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Niciun plan încărcat"
+                                   FontSize="16" FontFamily="Segoe UI" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Folosește panoul din stânga pentru a încărca un plan sau a crea o schiță."
                                    FontSize="11" FontFamily="Segoe UI"
                                    Foreground="{StaticResource TextMuted}"
-                                   VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding SelectedNetwork.SSID,
-                                           TargetNullValue='Nicio retea selectata',
-                                           FallbackValue='Nicio retea selectata'}"
-                                   FontSize="11" FontFamily="Segoe UI" FontWeight="Bold"
-                                   Foreground="{StaticResource Accent}"
-                                   VerticalAlignment="Center"/>
+                                   HorizontalAlignment="Center" Margin="0,8,0,0"
+                                   TextAlignment="Center" MaxWidth="320"/>
                     </StackPanel>
-                </StackPanel>
-            </Border>
+                </Grid>
 
-            <ScrollViewer Grid.Row="1"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto"
-                          Background="{StaticResource BgBase}">
-                <Canvas x:Name="MapCanvas"
-                        MouseWheel="MapCanvas_MouseWheel"
-                        Background="Transparent">
+                <!-- ══ MOD 2: HEATMAP OPTIMIZAT (simulare poziție router optimă) ══ -->
+                <Grid Visibility="{Binding IsOptimizedViewActive, Converter={StaticResource BoolToVis}}">
 
-                    <Grid x:Name="MapContent"
-                          MouseLeftButtonDown="MapContent_MouseLeftButtonDown"
-                          MouseRightButtonDown="MapContent_MouseRightButtonDown"
-                          MouseMove="MapContent_MouseMove"
-                          MouseLeftButtonUp="MapContent_MouseLeftButtonUp"
-                          Background="Transparent"
-                          Cursor="Cross">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Background="{StaticResource BgBase}">
+                        <Canvas x:Name="OptimizedMapCanvas" Background="Transparent">
+                            <Grid x:Name="OptimizedMapContent" Background="Transparent">
+                                <Image x:Name="OptimizedFloorPlanImage"
+                                       Source="{Binding FloorPlan}"
+                                       Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                       Panel.ZIndex="1"/>
+                                <Image x:Name="OptimizedHeatmapImage"
+                                       Source="{Binding OptimizedHeatmapOverlay}"
+                                       Width="{Binding ElementName=OptimizedFloorPlanImage, Path=ActualWidth}"
+                                       Height="{Binding ElementName=OptimizedFloorPlanImage, Path=ActualHeight}"
+                                       Stretch="Fill" IsHitTestVisible="False" Opacity="0.75" Panel.ZIndex="2">
+                                    <Image.Effect>
+                                        <BlurEffect Radius="6" KernelType="Gaussian"/>
+                                    </Image.Effect>
+                                </Image>
+                                <Canvas x:Name="OptimizedObjectsCanvas" Background="{x:Null}" Panel.ZIndex="3"/>
+                            </Grid>
+                        </Canvas>
+                    </ScrollViewer>
 
-                        <Border x:Name="GridBackground"
-                                Background="{StaticResource GridBrush}"
-                                Opacity="0.5" Panel.ZIndex="0"
-                                Visibility="Collapsed" />
-
-                        <Image x:Name="FloorPlanImage"
-                               Source="{Binding FloorPlan}"
-                               Stretch="Uniform"
-                               HorizontalAlignment="Left"
-                               VerticalAlignment="Top" Panel.ZIndex="1"/>
-
-                        <Image Source="{Binding HeatmapOverlay}"
-                               Width="{Binding ElementName=FloorPlanImage, Path=ActualWidth}"
-                               Height="{Binding ElementName=FloorPlanImage, Path=ActualHeight}"
-                               Stretch="Fill" IsHitTestVisible="False" Opacity="0.7" Panel.ZIndex="2"/>
-
-                        <InkCanvas x:Name="EditorCanvas"
-                                   Background="Transparent"
-                                   MouseLeftButtonDown="EditorCanvas_MouseDown"
-                                   MouseMove="EditorCanvas_MouseMove"
-                                   MouseLeftButtonUp="EditorCanvas_MouseUp"
-                                   Panel.ZIndex="3"
-                                   EditingMode="None">
-                            <InkCanvas.DefaultDrawingAttributes>
-                                <DrawingAttributes Color="#C8D6F0" Height="3" Width="3" FitToCurve="False"/>
-                            </InkCanvas.DefaultDrawingAttributes>
-                        </InkCanvas>
-
-                        <Line x:Name="PreviewLine"
-                              Stroke="#3B82F6" StrokeThickness="1.5"
-                              Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="4"/>
-
-                        <Canvas x:Name="SurveyPointsCanvas" Background="Transparent" Panel.ZIndex="5" IsHitTestVisible="False"/>
-                        <Canvas x:Name="ObjectsCanvas" Background="{x:Null}" IsHitTestVisible="True" Panel.ZIndex="6"/>
-                    </Grid>
-                </Canvas>
-            </ScrollViewer>
-
-            <Grid x:Name="DrawingOverlayUI"
-                  Grid.Row="1"
-                  Visibility="Collapsed">
-
-                <Border VerticalAlignment="Bottom" HorizontalAlignment="Center"
-                        Margin="0,0,0,16" Background="{StaticResource BgSection}"
-                        CornerRadius="6" Padding="14,7"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                        Panel.ZIndex="200">
-                    <TextBlock Text="Selectează materialul din dreapta · Salvează Schița când ești gata"
-                               Foreground="{StaticResource TextMuted}" FontSize="10" FontFamily="Consolas"/>
-                </Border>
-
-                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right"
-                            Orientation="Horizontal" Margin="0,14,24,0" 
-                            Panel.ZIndex="200" IsHitTestVisible="True">
-                    <Button Click="SaveSketch_Click" Style="{StaticResource AccentButton}" Padding="12,8" Margin="0,0,6,0" FontSize="11">
+                    <!-- Banner info simulare -->
+                    <Border VerticalAlignment="Top" HorizontalAlignment="Center"
+                            Margin="0,12,0,0" Background="#0D1A0D"
+                            BorderBrush="#22C55E" BorderThickness="1"
+                            CornerRadius="6" Padding="14,7" Panel.ZIndex="10">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#22C55E" BlurRadius="12" ShadowDepth="0" Opacity="0.3"/>
+                        </Border.Effect>
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconMaterial Kind="ContentSave" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock Text="Salvează Schița" VerticalAlignment="Center"/>
+                            <iconPacks:PackIconMaterial Kind="RouterWireless" Width="14" Height="14"
+                                                       Foreground="#22C55E" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBlock FontSize="11" FontFamily="Consolas" Foreground="#22C55E" VerticalAlignment="Center">
+                                <Run FontWeight="Bold" Text="SIMULARE"/>
+                                <Run Text=" · Heatmap semnal cu routerul la poziția optimă calculată de AI"/>
+                            </TextBlock>
                         </StackPanel>
-                    </Button>
-                    <Button Click="CancelSketch_Click" Style="{StaticResource DangerButton}" Padding="12,8" FontSize="11">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconMaterial Kind="Close" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,7,0"/>
-                            <TextBlock Text="Anulează" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ══ MOD 3: DOCTOR WiFi (diagnostic rețea integrat) ══ -->
+                <Grid Visibility="{Binding IsDoctorViewActive, Converter={StaticResource BoolToVis}}">
+
+                    <!-- Raport doctor (când există) -->
+                    <views:DoctorPanelView
+                        Report="{Binding DoctorReport}"
+                        Visibility="{Binding DoctorReport, Converter={StaticResource InvertNullToVisibilityConverter}}"/>
+
+                    <!-- Se analizează... -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="{Binding IsAnalyzingDoctor, Converter={StaticResource BoolToVis}}">
+                        <Border Width="64" Height="64" CornerRadius="32"
+                                Background="#151518" Margin="0,0,0,16" HorizontalAlignment="Center">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#F97316" BlurRadius="20" ShadowDepth="0" Opacity="0.3"/>
+                            </Border.Effect>
+                            <iconPacks:PackIconMaterial Kind="Stethoscope" Width="30" Height="30"
+                                                       Foreground="#F97316"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Se analizează rețeaua..."
+                                   FontSize="15" FontFamily="Segoe UI" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Machine Learning în desfășurare · K-Means clustering"
+                                   FontSize="11" FontFamily="Consolas"
+                                   Foreground="{StaticResource TextMuted}"
+                                   HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    </StackPanel>
+
+                    <!-- Nicio rețea selectată -->
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="{Binding ShowDoctorNoNetwork, Converter={StaticResource BoolToVis}}">
+                        <Border Width="70" Height="70" CornerRadius="35"
+                                Background="#151518" Margin="0,0,0,16" HorizontalAlignment="Center">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#3B82F6" BlurRadius="20" ShadowDepth="0" Opacity="0.2"/>
+                            </Border.Effect>
+                            <iconPacks:PackIconMaterial Kind="Stethoscope" Width="32" Height="32"
+                                                       Foreground="#3B82F6"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Selectează o rețea pentru diagnostic"
+                                   FontSize="16" FontFamily="Segoe UI" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Alege o rețea din panoul din stânga, apoi apasă 'Diagnostichează Rețeaua'"
+                                   FontSize="11" FontFamily="Segoe UI"
+                                   Foreground="{StaticResource TextMuted}"
+                                   HorizontalAlignment="Center" Margin="0,8,0,0"
+                                   TextAlignment="Center" MaxWidth="340"/>
+                    </StackPanel>
+                </Grid>
+
             </Grid>
-
-            <Border Grid.Row="1"
-                    Background="{StaticResource BgSection}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="1" CornerRadius="8"
-                    Padding="16,14" Margin="16"
-                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                    Visibility="{Binding FloorPlan, Converter={StaticResource InvertNullToVisibilityConverter}}">
-                <Border.Effect>
-                    <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="4" Opacity="0.4"/>
-                </Border.Effect>
-                <StackPanel>
-                    <TextBlock Text="COMENZI RAPIDE" FontWeight="Bold" FontSize="9"
-                               FontFamily="Consolas" Foreground="{StaticResource TextMuted}"
-                               Margin="0,0,0,8"/>
-                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="Scroll  ->  Zoom In/Out"/>
-                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="Drag    ->  Muta harta"/>
-                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="R / Shift+R  ->  Rotire"/>
-                    <TextBlock FontSize="10" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,2" Text="ESC  ->  Reseteaza pozitia"/>
-                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="0,6" Opacity="0.5"/>
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="4" Height="4" Fill="{StaticResource Accent}"
-                                 VerticalAlignment="Center" Margin="0,0,5,0"/>
-                        <TextBlock FontSize="10" FontFamily="Consolas"
-                                   Foreground="{StaticResource Accent}"
-                                   Text="Click stanga  ->  Actiunea unealtei active"/>
-                    </StackPanel>
-                </StackPanel>
-            </Border>
-
-            <StackPanel Grid.Row="1"
-                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{Binding FloorPlan, Converter={StaticResource NullToVisibilityConverter}}">
-                <Border Width="80" Height="80" CornerRadius="40"
-                        Background="#151518" Margin="0,0,0,16"
-                        HorizontalAlignment="Center">
-                    <Border.Effect>
-                        <DropShadowEffect Color="#3B82F6" BlurRadius="20" ShadowDepth="0" Opacity="0.2"/>
-                    </Border.Effect>
-                    <iconPacks:PackIconMaterial Kind="FloorPlan" Width="36" Height="36"
-                                               Foreground="#3B82F6"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
-                </Border>
-                <TextBlock Text="Niciun plan incarcat"
-                           FontSize="16" FontFamily="Segoe UI" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center"/>
-                <TextBlock Text="Foloseste panoul din stanga pentru a incarca un plan sau a crea o schita noua."
-                           FontSize="11" FontFamily="Segoe UI"
-                           Foreground="{StaticResource TextMuted}"
-                           HorizontalAlignment="Center" Margin="0,8,0,0"
-                           TextAlignment="Center" MaxWidth="320"/>
-            </StackPanel>
+            <!-- ═══════════════════════════════════════════════════════ -->
         </Grid>
 
         <Border Grid.Column="2"

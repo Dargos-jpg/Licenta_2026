@@ -84,28 +84,81 @@ public partial class MainWindow : Window
             CollectSketchAndSave();
         });
 
+        WeakReferenceMessenger.Default.Register<ResetMapCanvasMessage>(this, (r, m) =>
+        {
+            // Curăță pereții desenați
+            EditorCanvas.Strokes.Clear();
+            EditorCanvas.EditingMode = InkCanvasEditingMode.None;
+
+            // Curăță stampile și indicatorul routerului de pe ambele canvas-uri
+            ObjectsCanvas.Children.Clear();
+            OptimizedObjectsCanvas?.Children.Clear();
+
+            // Resetează transformările imaginii (zoom, rotație, translație)
+            ResetImageTransformations();
+        });
+
         WeakReferenceMessenger.Default.Register<RequestOptimalRouterMessage>(this, async (r, m) =>
         {
             try
             {
                 var elements = _viewModel.GetMapElements().ToList();
-                var surveys = _viewModel.GetSurveyPoints().ToList();
-                var strokes = EditorCanvas.Strokes;
+                var surveys  = _viewModel.GetSurveyPoints().ToList();
+                var strokes  = EditorCanvas.Strokes;
 
+                // Configurăm simularea pe baza benzii rețelei selectate (2.4 / 5 / 6 GHz)
+                string bandLabel = "2.4 GHz";
+                _viewModel.StatusMessage = "Calculăm poziția optimă cu AI Multi-Criteria...";
+
+                // 1. Găsim poziția optimă — cu SSID inclus pentru consistența cu măsurătorile reale
+                //    Rețelele cu mai multe puncte dense dau o poziție mai precisă
                 Point optimalPosition = await Task.Run(() =>
                 {
                     var optimizer = new RouterOptimizationService();
+                    bandLabel = optimizer.Configure(m.Channel);
                     return optimizer.FindOptimalPosition(
-                        elements, surveys, strokes, m.Width, m.Height, m.Scale);
+                        elements, surveys, strokes, m.Width, m.Height, m.Scale,
+                        targetSSID: m.TargetSSID);
                 });
 
-                _viewModel.StatusMessage = $"Pozitie optima: X={optimalPosition.X:F0}, Y={optimalPosition.Y:F0} — semnal uniform garantat.";
-                DrawOptimalRouterIndicator(optimalPosition);
+                _viewModel.StatusMessage =
+                    $"Poziție găsită: ({optimalPosition.X:F0}, {optimalPosition.Y:F0}). " +
+                    $"Se generează simularea {bandLabel}...";
+
+                // 2. Calibrăm TX power din măsurători reale + generăm heatmap optimizat
+                //    Calibrarea face ca -54 dBm să simuleze mai bine decât -68 dBm, indiferent de bandă
+                double calibratedTx = 20.0; // fallback
+                var optimizedHeatmap = await Task.Run(() =>
+                {
+                    var optimizer = new RouterOptimizationService();
+                    optimizer.Configure(m.Channel);
+
+                    // Calibrare TX power din semnalul real măsurat în punctele de survey
+                    calibratedTx = optimizer.CalibrateTxPower(
+                        optimalPosition, surveys, m.TargetSSID, m.Scale);
+
+                    return optimizer.GenerateOptimizedHeatmap(
+                        optimalPosition, elements, strokes,
+                        (int)m.Width, (int)m.Height, m.Scale);
+                });
+
+                // 3. Actualizăm ViewModel și comutăm la modul Optimizat
+                _viewModel.OptimizedHeatmapOverlay = optimizedHeatmap;
+                _viewModel.IsOptimizationDone      = true;
+                _viewModel.CentralViewMode         = CentralViewMode.Optimized;
+
+                // 4. Desenăm indicatorul routerului NUMAI pe canvas-ul Optimizat
+                DrawOptimalRouterOnOptimizedCanvas(optimalPosition);
+
+                _viewModel.StatusMessage =
+                    $"Optimizare completă [{bandLabel} · TX≈{calibratedTx:F1} dBm] · " +
+                    $"Poziție optimă: ({optimalPosition.X:F0}, {optimalPosition.Y:F0}). " +
+                    $"Comutați vizualizarea din meniul Vizualizare.";
             }
             catch (Exception ex)
             {
                 _viewModel.StatusMessage = $"Eroare calcul AI: {ex.Message}";
-                MessageBox.Show($"Eroare la calculul pozitiei optime:\n{ex.Message}",
+                MessageBox.Show($"Eroare la calculul poziției optime:\n{ex.Message}",
                     "Eroare AI", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         });
@@ -870,6 +923,65 @@ public partial class MainWindow : Window
         }
     }
 
+    #region Options Menu (hover dropdown)
+
+    private System.Windows.Threading.DispatcherTimer? _optionsMenuTimer;
+
+    private void OptionsMenuTrigger_MouseEnter(object sender, MouseEventArgs e)
+    {
+        _optionsMenuTimer?.Stop();
+        OptionsPopup.IsOpen = true;
+    }
+
+    private void OptionsMenuTrigger_MouseLeave(object sender, MouseEventArgs e)
+    {
+        StartOptionsMenuCloseTimer();
+    }
+
+    private void OptionsPopupContent_MouseEnter(object sender, MouseEventArgs e)
+    {
+        _optionsMenuTimer?.Stop();
+    }
+
+    private void OptionsPopupContent_MouseLeave(object sender, MouseEventArgs e)
+    {
+        StartOptionsMenuCloseTimer();
+    }
+
+    private void StartOptionsMenuCloseTimer()
+    {
+        _optionsMenuTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _optionsMenuTimer.Tick += (s, _) =>
+        {
+            _optionsMenuTimer?.Stop();
+            OptionsPopup.IsOpen = false;
+        };
+        _optionsMenuTimer.Start();
+    }
+
+    private void OptionsMenuNormal_Click(object sender, RoutedEventArgs e)
+    {
+        OptionsPopup.IsOpen = false;
+        _viewModel.SwitchToNormalViewCommand.Execute(null);
+    }
+
+    private void OptionsMenuOptimized_Click(object sender, RoutedEventArgs e)
+    {
+        OptionsPopup.IsOpen = false;
+        _viewModel.SwitchToOptimizedViewCommand.Execute(null);
+    }
+
+    private void OptionsMenuDoctor_Click(object sender, RoutedEventArgs e)
+    {
+        OptionsPopup.IsOpen = false;
+        _viewModel.SwitchToDoctorViewCommand.Execute(null);
+    }
+
+    #endregion
+
     private void SetPenAttributes(Color color, double thickness)
     {
         var attributes = new DrawingAttributes
@@ -1136,16 +1248,63 @@ public partial class MainWindow : Window
         ObjectsCanvas.Children.Add(innerCircle);
         ObjectsCanvas.Children.Add(routerIcon);
         ObjectsCanvas.Children.Add(label);
+    }
 
-        MessageBox.Show(
-            $"Am marcat pozitia optima pentru router!\n\n" +
-            $"Coordonate: X={pos.X:F0}, Y={pos.Y:F0}\n\n" +
-            $"Algoritmul Min-Max a scanat intreg planul si a ales pozitia care\n" +
-            $"garanteaza ca cel mai izolat punct din casa primeste semnal maxim,\n" +
-            $"luand in calcul toti peretii si obstacolele desenate.",
-            "Pozitie Optima Gasita",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+    /// <summary>
+    /// Desenează indicatorul routerului optim și pe canvas-ul din modul Optimizat.
+    /// </summary>
+    private void DrawOptimalRouterOnOptimizedCanvas(Point pos)
+    {
+        if (OptimizedObjectsCanvas == null) return;
+
+        OptimizedObjectsCanvas.Children.Clear();
+
+        var outerRing = new Ellipse
+        {
+            Width = 56, Height = 56,
+            Fill = Brushes.Transparent,
+            Stroke = new SolidColorBrush(Color.FromArgb(180, 0, 220, 0)),
+            StrokeThickness = 2.5,
+            StrokeDashArray = new DoubleCollection { 4, 2 }
+        };
+
+        var innerCircle = new Ellipse
+        {
+            Width = 40, Height = 40,
+            Fill = new SolidColorBrush(Color.FromArgb(120, 0, 255, 0)),
+            Stroke = Brushes.LimeGreen,
+            StrokeThickness = 3
+        };
+
+        var routerIcon = new PackIconMaterial
+        {
+            Kind = PackIconMaterialKind.RouterWireless,
+            Width = 22, Height = 22,
+            Foreground = Brushes.LimeGreen
+        };
+
+        var label = new TextBlock
+        {
+            Text = "POZIȚIE OPTIMĂ",
+            FontSize = 9, FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Colors.LimeGreen),
+            Background = new SolidColorBrush(Color.FromArgb(160, 0, 0, 0)),
+            Padding = new Thickness(3, 1, 3, 1)
+        };
+
+        Canvas.SetLeft(outerRing, pos.X - 28);
+        Canvas.SetTop(outerRing, pos.Y - 28);
+        Canvas.SetLeft(innerCircle, pos.X - 20);
+        Canvas.SetTop(innerCircle, pos.Y - 20);
+        Canvas.SetLeft(routerIcon, pos.X - 11);
+        Canvas.SetTop(routerIcon, pos.Y - 11);
+        Canvas.SetLeft(label, pos.X - 40);
+        Canvas.SetTop(label, pos.Y + 23);
+
+        OptimizedObjectsCanvas.Children.Add(outerRing);
+        OptimizedObjectsCanvas.Children.Add(innerCircle);
+        OptimizedObjectsCanvas.Children.Add(routerIcon);
+        OptimizedObjectsCanvas.Children.Add(label);
     }
 
     /// <summary>
