@@ -83,9 +83,36 @@
                     <TextBlock Text=" · Raport Diagnostic Avansat" FontSize="10" FontFamily="Consolas"
                                Foreground="{StaticResource DPTextMuted}" VerticalAlignment="Center"/>
                 </StackPanel>
-                <TextBlock x:Name="TimestampText" Text="–" HorizontalAlignment="Right"
-                           FontSize="10" FontFamily="Consolas"
-                           Foreground="{StaticResource DPTextMuted}" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="TimestampText" Text="–"
+                               FontSize="10" FontFamily="Consolas"
+                               Foreground="{StaticResource DPTextMuted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Button x:Name="ExportPdfButton" Click="ExportPdf_Click"
+                            Background="#1E3A5F" BorderBrush="#3B82F6" BorderThickness="1"
+                            Foreground="#3B82F6" FontSize="9" FontFamily="Consolas" FontWeight="Bold"
+                            Padding="10,5" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#2A4A7F"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="FilePdfBox" Width="12" Height="12"
+                                                        VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            <TextBlock Text="EXPORT PDF" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -183,13 +210,27 @@
                                        Foreground="{StaticResource DPTextMuted}" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Border>
-                    <Border Background="{StaticResource DPBgSection}" CornerRadius="7" Padding="12,8">
+                    <Border Background="{StaticResource DPBgSection}" CornerRadius="7" Padding="12,8" Margin="0,0,8,0">
                         <StackPanel HorizontalAlignment="Center">
                             <TextBlock Text="CONG." FontSize="8" FontFamily="Consolas"
                                        Foreground="{StaticResource DPTextMuted}" HorizontalAlignment="Center"/>
                             <TextBlock x:Name="CongestionText" Text="—" FontSize="16" FontWeight="Bold"
                                        Foreground="{StaticResource DPTextPrimary}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             <TextBlock Text="0-100" FontSize="8" Foreground="{StaticResource DPTextMuted}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- SNR pill -->
+                    <Border Background="{StaticResource DPBgSection}" CornerRadius="7" Padding="12,8">
+                        <StackPanel HorizontalAlignment="Center">
+                            <TextBlock Text="SNR" FontSize="8" FontFamily="Consolas"
+                                       Foreground="{StaticResource DPTextMuted}" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="SnrText" Text="—" FontSize="16" FontWeight="Bold"
+                                       HorizontalAlignment="Center" Margin="0,2,0,0">
+                                <TextBlock.Foreground>
+                                    <SolidColorBrush x:Name="SnrBrush" Color="#22C55E"/>
+                                </TextBlock.Foreground>
+                            </TextBlock>
+                            <TextBlock Text="dB est." FontSize="8" Foreground="{StaticResource DPTextMuted}" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -338,9 +379,10 @@
                     CornerRadius="9" Padding="18">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>   <!-- Header -->
+                        <RowDefinition Height="*"/>      <!-- Bar chart -->
+                        <RowDefinition Height="Auto"/>   <!-- Spectru 2.4 GHz (opțional) -->
+                        <RowDefinition Height="Auto"/>   <!-- Health bar -->
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
@@ -359,9 +401,29 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <Canvas x:Name="InterferenceChart" Grid.Row="1" Background="Transparent"/>
+                    <Canvas x:Name="InterferenceChart" Grid.Row="1" Background="Transparent"
+                            MinHeight="60" MaxHeight="220"/>
 
-                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                    <!-- Spectru suprapunere canale 2.4 GHz — Row 2, vizibil doar pt 2.4 GHz -->
+                    <Border x:Name="SpectrumContainer" Grid.Row="2" Margin="0,8,0,0"
+                            Background="#0D0D14" BorderBrush="#1E1E2A" BorderThickness="1"
+                            CornerRadius="5" Padding="8,6">
+                        <StackPanel>
+                            <TextBlock Text="SPECTRU CANALE 2.4 GHz — SUPRAPUNERE" FontSize="8"
+                                       FontFamily="Consolas" Foreground="#5A5A72" FontWeight="Bold" Margin="0,0,0,5"/>
+                            <Canvas x:Name="ChannelSpectrumCanvas" Height="55" Background="Transparent"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Ellipse Width="6" Height="6" Fill="#22C55E" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="Canal curent" FontSize="8" FontFamily="Consolas" Foreground="#5A5A72" Margin="0,0,12,0"/>
+                                <Ellipse Width="6" Height="6" Fill="#3B82F6" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="Vecini" FontSize="8" FontFamily="Consolas" Foreground="#5A5A72" Margin="0,0,12,0"/>
+                                <Ellipse Width="6" Height="6" Fill="#EF4444" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="Suprapunere" FontSize="8" FontFamily="Consolas" Foreground="#5A5A72"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Grid.Row="3" Margin="0,12,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>

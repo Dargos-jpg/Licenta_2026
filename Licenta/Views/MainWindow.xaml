@@ -18,9 +18,9 @@
 
         <DrawingBrush x:Key="GridBrush" Viewport="0,0,20,20" ViewportUnits="Absolute" TileMode="Tile">
             <DrawingBrush.Drawing>
-                <GeometryDrawing>
+                <GeometryDrawing Brush="White">
                     <GeometryDrawing.Pen>
-                        <Pen Brush="#1A1A22" Thickness="0.5"/>
+                        <Pen Brush="#BFDBFE" Thickness="0.5"/>
                     </GeometryDrawing.Pen>
                     <GeometryDrawing.Geometry>
                         <RectangleGeometry Rect="0,0,20,20"/>
@@ -154,7 +154,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="260"/>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="210"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
         <Grid Grid.Column="0" Background="{StaticResource BgPanel}">
@@ -274,6 +274,57 @@
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,6,0,6">
 
+                    <!-- Buton redeschidere wizard — vizibil doar când a fost închis manual în Basic mode -->
+                    <Border Margin="10,0,10,6" CornerRadius="6" Padding="0"
+                            BorderBrush="#3B82F6" BorderThickness="1">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsWizardMinimized}" Value="True"/>
+                                            <Condition Binding="{Binding IsExpertMode}" Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Button Command="{Binding ShowWizardCommand}"
+                                Background="#0D1A30" Foreground="#60A5FA"
+                                BorderThickness="0" Padding="10,7" Cursor="Hand" Width="240">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                                        CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="bd" Property="Background" Value="#1E3A5F"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <iconPacks:PackIconMaterial Kind="HelpCircle" Width="12" Height="12"
+                                                            VerticalAlignment="Center" Margin="0,0,6,0"
+                                                            Foreground="#60A5FA"/>
+                                <TextBlock Text="Redeschide Ghidul Setup"
+                                           FontSize="10" FontFamily="Segoe UI"
+                                           FontWeight="SemiBold" Foreground="#60A5FA"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Border>
+
                     <Expander Style="{StaticResource SidebarExpander}" IsExpanded="True">
                         <Expander.Header>
                             <TextBlock Text="HARTĂ" FontSize="9" FontFamily="Consolas"
@@ -296,13 +347,38 @@
                                 <Button Grid.Column="1" Style="{StaticResource InfoButton}"
                                         ToolTip="Încarcă o imagine (PNG/JPG) a planului casei sau biroului. Aceasta va fi baza pe care vei plasa puncte de măsurare și obstacole."/>
                             </Grid>
-                            <Button Style="{StaticResource SidebarButton}" Click="StartSketch_Click">
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconMaterial Kind="PencilBox" Width="13" Height="13"
-                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Creează Schiță Nouă" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource SidebarButton}"
+                                        Click="StartDrawOverPlan_Click"
+                                        IsEnabled="{Binding HasFloorPlan}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="PencilBox" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Desenează Pereți" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                        ToolTip="Activează modul desen peste planul încărcat (PNG/JPG). Trage linii drepte peste pereții din imagine — acestea vor fi folosite de simulare pentru atenuarea semnalului."/>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Style="{StaticResource SidebarButton}" Click="StartNewGridCanvas_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="Grid" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Plan Grilă Nou" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource InfoButton}"
+                                        ToolTip="Șterge planul încărcat și creează un canvas alb cu grilă (stil caiet). Util dacă nu ai o imagine sau vrei să desenezi planul de la zero. Scara: 1 pătrățel = 1 metru."/>
+                            </Grid>
                             <Grid>
                                 <Grid.Style>
                                     <Style TargetType="Grid">
@@ -394,26 +470,51 @@
                                 <Button Grid.Column="1" Style="{StaticResource InfoButton}"
                                         ToolTip="Deschide Doctor WiFi în zona centrală. Analizează interferențele cu K-Means (ML) și oferă recomandări. Selectează mai întâi o rețea din listă."/>
                             </Grid>
-                            <Button Command="{Binding ToggleAutoScanCommand}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                            <!-- Auto-Scan + selector interval -->
+                            <Grid>
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
                                         <Setter Property="Visibility" Value="Collapsed"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
                                                 <Setter Property="Visibility" Value="Visible"/>
                                             </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsAutoScanning}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource Danger}"/>
-                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconMaterial Kind="PlayPause" Width="13" Height="13"
-                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding AutoScanButtonText}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0" Command="{Binding ToggleAutoScanCommand}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsAutoScanning}" Value="True">
+                                                    <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="PlayPause" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding AutoScanButtonText}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <!-- Selector interval -->
+                                <ComboBox Grid.Column="1" Width="56"
+                                          SelectedValue="{Binding AutoScanIntervalSeconds}"
+                                          SelectedValuePath="Tag"
+                                          FontSize="10" FontFamily="Consolas"
+                                          VerticalAlignment="Center" Margin="4,0,0,0"
+                                          ToolTip="Interval scanare automată">
+                                    <ComboBoxItem Content="2s"  Tag="2"/>
+                                    <ComboBoxItem Content="5s"  Tag="5" IsSelected="True"/>
+                                    <ComboBoxItem Content="10s" Tag="10"/>
+                                    <ComboBoxItem Content="30s" Tag="30"/>
+                                </ComboBox>
+                            </Grid>
 
                             <Border Margin="0,6,0,2" Padding="8,4" CornerRadius="4"
                                     Background="#0D0D14" HorizontalAlignment="Left">
@@ -593,12 +694,64 @@
                                             ToolTip="Încarcă un proiect salvat anterior. Restaurează automat punctele, obstacolele, calibrarea și generează heatmap-ul dacă sunt date suficiente."/>
                                 </Grid>
                             </Grid>
+                            <!-- Undo / Redo -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="6"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0"
+                                        Style="{StaticResource SidebarButton}"
+                                        Command="{Binding UndoCommand}"
+                                        ToolTip="Anulează ultima acțiune (Ctrl+Z)">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="Undo" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Undo" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Column="2"
+                                        Style="{StaticResource SidebarButton}"
+                                        Command="{Binding RedoCommand}"
+                                        ToolTip="Reface ultima acțiune (Ctrl+Y)">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="Redo" Width="13" Height="13"
+                                                                    VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <TextBlock Text="Redo" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <!-- Export PNG (vizibil când există heatmap) -->
+                            <Button Style="{StaticResource SidebarButton}"
+                                    Click="ExportHeatmapPng_Click"
+                                    Visibility="{Binding HeatmapOverlay, Converter={StaticResource InvertNullToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="FileImageOutline" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Export PNG" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
                             <Button Style="{StaticResource DangerButton}"
-                                    Command="{Binding ClearSurveyPointsCommand}">
+                                    Command="{Binding ClearSurveyPointsCommand}"
+                                    ToolTip="Șterge punctele și obstacolele. Planul rămâne încărcat.">
                                 <StackPanel Orientation="Horizontal">
                                     <iconPacks:PackIconMaterial Kind="TrashCanOutline" Width="13" Height="13"
                                                                 VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <TextBlock Text="Șterge Toate Punctele" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Reset Complet — ca la pornirea aplicației -->
+                            <Button Style="{StaticResource DangerButton}"
+                                    Command="{Binding ResetAllCommand}"
+                                    ToolTip="Resetează TOT: plan, puncte, obstacole, heatmap. Ca la pornire.">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="Restore" Width="13" Height="13"
+                                                                VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Reset Complet" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -611,33 +764,39 @@
                     Background="#0A0A10"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="0,1,0,0"
-                    Padding="12,7">
-                <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="5" Height="5" Fill="{StaticResource Accent}"
-                             VerticalAlignment="Center" Margin="0,0,7,0">
+                    Padding="12,7"
+                    MinHeight="32">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Ellipse Grid.Column="0" Width="5" Height="5" Fill="{StaticResource Accent}"
+                             VerticalAlignment="Top" Margin="0,3,7,0">
                         <Ellipse.Effect>
                             <DropShadowEffect Color="#3B82F6" BlurRadius="5" ShadowDepth="0"/>
                         </Ellipse.Effect>
                     </Ellipse>
-                    <TextBlock Text="{Binding StatusMessage}"
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding StatusMessage}"
                                FontSize="10" FontFamily="Consolas"
                                Foreground="{StaticResource TextSecondary}"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
+                               TextWrapping="Wrap"/>
+                </Grid>
             </Border>
         </Grid>
 
         <Grid Grid.Column="1" Background="{StaticResource BgBase}">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>   <!-- top bar -->
+                <RowDefinition Height="Auto"/>   <!-- wizard Basic mode -->
+                <RowDefinition Height="*"/>      <!-- map / views -->
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0"
                     Background="{StaticResource BgSection}"
                     BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,0,0,1" Padding="16,9">
+                    BorderThickness="0,0,0,1" Padding="16,14">
                 <Grid>
                     <!-- Stânga: info hartă + tool activ + rețea -->
                     <StackPanel Orientation="Horizontal">
@@ -686,12 +845,90 @@
                                        FontSize="11" FontFamily="Segoe UI" FontWeight="Bold"
                                        Foreground="{StaticResource Accent}"
                                        VerticalAlignment="Center"/>
+                            <!-- Trend semnal continuu -->
+                            <TextBlock Text="{Binding SelectedNetworkTrend}"
+                                       FontSize="10" FontFamily="Consolas" FontWeight="Bold"
+                                       Foreground="#60A5FA" Margin="8,0,0,0"
+                                       VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsAutoScanning}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </StackPanel>
-                    </StackPanel>
 
-                    <!-- Dreapta: meniu Opțiuni (hover dropdown) -->
-                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                        <!-- Meniu Opțiuni hover-activated -->
+                        <!-- Alertă drop semnal -->
+                        <Border Margin="8,0,0,0" VerticalAlignment="Center"
+                                Background="#2A0A0A" CornerRadius="4" Padding="8,3"
+                                BorderBrush="#EF4444" BorderThickness="1"
+                                Visibility="{Binding IsSignalAlert, Converter={StaticResource BoolToVis}}"
+                                ToolTip="{Binding SignalAlertMessage}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="AlertCircle" Width="11" Height="11"
+                                                            VerticalAlignment="Center" Margin="0,0,5,0"
+                                                            Foreground="#EF4444"/>
+                                <TextBlock Text="{Binding SignalAlertMessage}"
+                                           FontSize="10" FontFamily="Consolas"
+                                           Foreground="#EF4444" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Buton toggle Dead Zone Overlay (vizibil doar când există heatmap) -->
+                        <Border Margin="14,0,0,0" VerticalAlignment="Center"
+                                Visibility="{Binding HeatmapOverlay, Converter={StaticResource InvertNullToVisibilityConverter}}">
+                            <ToggleButton IsChecked="{Binding IsDeadZoneOverlayActive}"
+                                         Click="ToggleDeadZoneOverlay_Click"
+                                         Cursor="Hand" Padding="8,4"
+                                         FontSize="10" FontFamily="Consolas">
+                                <ToggleButton.Style>
+                                    <Style TargetType="ToggleButton">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
+                                        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                            CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter VerticalAlignment="Center"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter TargetName="bd" Property="Background" Value="#2A0A0A"/>
+                                                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Danger}"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="bd" Property="Background" Value="{StaticResource BgHover}"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ToggleButton.Style>
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconMaterial Kind="MapMarkerOff" Width="11" Height="11"
+                                                                VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=Foreground}"/>
+                                    <TextBlock Text="Zone Moarte" VerticalAlignment="Center"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=Foreground}"/>
+                                </StackPanel>
+                            </ToggleButton>
+                        </Border>
+
+                        <Rectangle Width="1" Fill="{StaticResource BorderBrush}" Margin="14,2" Opacity="0.6"/>
+
+                        <!-- Meniu Vizualizare — fix după rețea, nu flotant dreapta -->
                         <Border x:Name="OptionsMenuTrigger"
                                 MouseEnter="OptionsMenuTrigger_MouseEnter"
                                 MouseLeave="OptionsMenuTrigger_MouseLeave"
@@ -814,6 +1051,162 @@
                                 </StackPanel>
                             </Border>
                         </Popup>
+
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ══ WIZARD GHID BASIC MODE — Row 1, sub bara de sus ══ -->
+            <Border Grid.Row="1"
+                    Visibility="{Binding IsWizardVisible, Converter={StaticResource BoolToVis}}"
+                    Background="#12101820"
+                    BorderBrush="#3B82F6"
+                    BorderThickness="0,0,0,2"
+                    Padding="16,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Step indicator -->
+                    <Border Grid.Column="0" Width="38" Height="38" CornerRadius="19"
+                            Background="#1A3B82F6" BorderBrush="#3B82F6" BorderThickness="1.5"
+                            Margin="0,0,14,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding WizardStepNumber}"
+                                   FontSize="8" FontWeight="Bold" Foreground="#93C5FD"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   TextAlignment="Center" TextWrapping="Wrap" Width="34"/>
+                    </Border>
+
+                    <!-- Title + description + progress bar -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                            <TextBlock Text="{Binding WizardTitle}"
+                                       FontSize="12" FontWeight="Bold" Foreground="#E0E8FF"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding WizardDescription}"
+                                   FontSize="10" Foreground="#93C5FD"
+                                   TextWrapping="Wrap"/>
+                        <!-- Progress segments — 7 pași -->
+                        <UniformGrid Rows="1" Columns="7" Height="3" Margin="0,6,0,0" MaxWidth="300" HorizontalAlignment="Left">
+                            <Border Margin="0,0,2,0" CornerRadius="2"
+                                    Background="{Binding CurrentWizardStep, Converter={StaticResource WizardStepBrushConverter}, ConverterParameter='0'}"/>
+                            <Border Margin="0,0,2,0" CornerRadius="2"
+                                    Background="{Binding CurrentWizardStep, Converter={StaticResource WizardStepBrushConverter}, ConverterParameter='1'}"/>
+                            <Border Margin="0,0,2,0" CornerRadius="2"
+                                    Background="{Binding CurrentWizardStep, Converter={StaticResource WizardStepBrushConverter}, ConverterParameter='2'}"/>
+                            <Border Margin="0,0,2,0" CornerRadius="2"
+                                    Background="{Binding CurrentWizardStep, Converter={StaticResource WizardStepBrushConverter}, ConverterParameter='3'}"/>
+                            <Border Margin="0,0,2,0" CornerRadius="2"
+                                    Background="{Binding CurrentWizardStep, Converter={StaticResource WizardStepBrushConverter}, ConverterParameter='4'}"/>
+                            <Border Margin="0,0,2,0" CornerRadius="2"
+                                    Background="{Binding CurrentWizardStep, Converter={StaticResource WizardStepBrushConverter}, ConverterParameter='5'}"/>
+                            <Border CornerRadius="2"
+                                    Background="{Binding CurrentWizardStep, Converter={StaticResource WizardStepBrushConverter}, ConverterParameter='6'}"/>
+                        </UniformGrid>
+                    </StackPanel>
+
+                    <!-- Butoane dreapta: Skip Calibrare (doar la pasul 3) + Action + X -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Buton Skip — vizibil doar la pasul Calibrate (2) și necalibrat -->
+                        <Button Command="{Binding SkipCalibrationCommand}"
+                                Background="Transparent" Foreground="#6B7280"
+                                BorderBrush="#374151" BorderThickness="1"
+                                Padding="10,6" Cursor="Hand" FontSize="10"
+                                Margin="0,0,8,0"
+                                ToolTip="Sari peste calibrare (heatmap-ul va folosi scara implicita de 50px/m)">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="bd" Property="Background" Value="#1F2937"/>
+                                                        <Setter Property="Foreground" Value="#9CA3AF"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <MultiDataTrigger>
+                                            <MultiDataTrigger.Conditions>
+                                                <Condition Binding="{Binding CurrentWizardStep}" Value="Calibrate"/>
+                                                <Condition Binding="{Binding IsCalibrated}" Value="False"/>
+                                            </MultiDataTrigger.Conditions>
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </MultiDataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <TextBlock Text="Sari →"/>
+                        </Button>
+
+                        <!-- Action button principal -->
+                        <Button Command="{Binding ExecuteWizardStepCommand}"
+                                Background="#3B82F6" Foreground="White"
+                                BorderThickness="0" Padding="16,7"
+                                Cursor="Hand" FontSize="11" FontWeight="SemiBold"
+                                Margin="0,0,8,0">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{TemplateBinding Background}"
+                                                        CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#2563EB"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <TextBlock Text="{Binding WizardActionText}"/>
+                        </Button>
+
+                        <!-- X — închide panoul wizard fără a schimba modul -->
+                        <Button Command="{Binding DismissWizardCommand}"
+                                Background="Transparent" Foreground="#4B5563"
+                                BorderThickness="0" Padding="6,6"
+                                Cursor="Hand"
+                                ToolTip="Închide ghidul (poate fi redeschis din sidebar)">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Foreground" Value="#EF4444"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <TextBlock Text="✕" FontSize="13"/>
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -821,7 +1214,7 @@
             <!-- ═══════════════════════════════════════════════════════ -->
             <!-- ZONA CENTRALĂ — 3 MODURI DE VIZUALIZARE              -->
             <!-- ═══════════════════════════════════════════════════════ -->
-            <Grid Grid.Row="1">
+            <Grid Grid.Row="2">
 
                 <!-- ══ MOD 1: HEATMAP NORMAL (vizualizare curentă) ══ -->
                 <Grid Visibility="{Binding IsNormalViewActive, Converter={StaticResource BoolToVis}}">
@@ -843,12 +1236,12 @@
 
                                 <Border x:Name="GridBackground"
                                         Background="{StaticResource GridBrush}"
-                                        Opacity="0.5" Panel.ZIndex="0"
+                                        Opacity="1" Panel.ZIndex="0"
                                         Visibility="Collapsed" />
 
                                 <Image x:Name="FloorPlanImage"
                                        Source="{Binding FloorPlan}"
-                                       Stretch="Uniform"
+                                       Stretch="None"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Top" Panel.ZIndex="1"/>
 
@@ -856,6 +1249,13 @@
                                        Width="{Binding ElementName=FloorPlanImage, Path=ActualWidth}"
                                        Height="{Binding ElementName=FloorPlanImage, Path=ActualHeight}"
                                        Stretch="Fill" IsHitTestVisible="False" Opacity="0.7" Panel.ZIndex="2"/>
+
+                                <!-- Dead Zone Overlay — zone roșii sub prag -->
+                                <Image Source="{Binding DeadZoneOverlay}"
+                                       Width="{Binding ElementName=FloorPlanImage, Path=ActualWidth}"
+                                       Height="{Binding ElementName=FloorPlanImage, Path=ActualHeight}"
+                                       Stretch="Fill" IsHitTestVisible="False" Panel.ZIndex="3"
+                                       Visibility="{Binding IsDeadZoneOverlayActive, Converter={StaticResource BoolToVisConverter}}"/>
 
                                 <InkCanvas x:Name="EditorCanvas"
                                            Background="Transparent"
@@ -933,9 +1333,51 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Legendă heatmap (bottom-left, vizibilă doar când există heatmap) -->
+                    <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                            Margin="16"
+                            Background="{StaticResource BgSection}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="12,10"
+                            Panel.ZIndex="50"
+                            Visibility="{Binding HeatmapOverlay, Converter={StaticResource InvertNullToVisibilityConverter}}">
+                        <Border.Effect>
+                            <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="3" Opacity="0.45"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="SEMNAL WiFi" FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextMuted}" Margin="0,0,0,7"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#00C800" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Excelent  › -50 dBm" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#ADFF00" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Bun       -50 / -62" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#FFFF00" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Mediu     -62 / -70" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#FF8000" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Slab      -70 / -80" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#FF0000" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="F. Slab   ‹ -80 dBm" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Empty state (niciun plan) -->
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                                Visibility="{Binding FloorPlan, Converter={StaticResource NullToVisibilityConverter}}">
+                                Visibility="{Binding ShowEmptyPlaceholder, Converter={StaticResource BoolToVis}}">
                         <Border Width="80" Height="80" CornerRadius="40"
                                 Background="#151518" Margin="0,0,0,16" HorizontalAlignment="Center">
                             <Border.Effect>
@@ -982,6 +1424,47 @@
                         </Canvas>
                     </ScrollViewer>
 
+                    <!-- Legendă heatmap optimizat (bottom-left) -->
+                    <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                            Margin="16"
+                            Background="{StaticResource BgSection}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="12,10"
+                            Panel.ZIndex="10">
+                        <Border.Effect>
+                            <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="3" Opacity="0.45"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="SEMNAL SIMULAT" FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextMuted}" Margin="0,0,0,7"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#00C800" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Excelent  › -50 dBm" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#ADFF00" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Bun       -50 / -62" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#FFFF00" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Mediu     -62 / -70" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#FF8000" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Slab      -70 / -80" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Rectangle Width="12" Height="12" RadiusX="2" RadiusY="2" Fill="#FF0000" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="F. Slab   ‹ -80 dBm" FontSize="10" FontFamily="Consolas"
+                                           Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
                     <!-- Banner info simulare -->
                     <Border VerticalAlignment="Top" HorizontalAlignment="Center"
                             Margin="0,12,0,0" Background="#0D1A0D"
@@ -999,6 +1482,7 @@
                             </TextBlock>
                         </StackPanel>
                     </Border>
+
                 </Grid>
 
                 <!-- ══ MOD 3: DOCTOR WiFi (diagnostic rețea integrat) ══ -->
@@ -1006,6 +1490,7 @@
 
                     <!-- Raport doctor (când există) -->
                     <views:DoctorPanelView
+                        x:Name="DoctorPanel"
                         Report="{Binding DoctorReport}"
                         Visibility="{Binding DoctorReport, Converter={StaticResource InvertNullToVisibilityConverter}}"/>
 
@@ -1058,30 +1543,66 @@
         </Grid>
 
         <Border Grid.Column="2"
+                Width="210"
                 Background="{StaticResource BgPanel}"
                 BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1,0,0,0">
+                BorderThickness="1,0,0,0"
+                Visibility="{Binding IsNormalViewActive, Converter={StaticResource BoolToVisConverter}}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0"
-                        Background="{StaticResource BgSection}"
-                        BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="0,0,0,1" Padding="12,12">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Rectangle Width="3" Height="12" Fill="{StaticResource Accent}"
-                                   VerticalAlignment="Center" RadiusX="1" RadiusY="1" Margin="0,0,8,0"/>
-                        <TextBlock Text="TRUSA DE UNELTE"
-                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
-                                   Foreground="{StaticResource TextMuted}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
+                <!-- Header cu toggle expand/collapse -->
+                <ToggleButton x:Name="ToolboxToggle"
+                              Grid.Row="0"
+                              IsChecked="True"
+                              Background="{StaticResource BgSection}"
+                              BorderBrush="{StaticResource BorderBrush}"
+                              BorderThickness="0,0,0,1"
+                              Padding="12,10"
+                              Cursor="Hand"
+                              Focusable="False">
+                    <ToggleButton.Template>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <Rectangle Width="3" Height="12" Fill="{StaticResource Accent}"
+                                                   VerticalAlignment="Center" RadiusX="1" RadiusY="1" Margin="0,0,8,0"/>
+                                        <TextBlock Text="TRUSA DE UNELTE"
+                                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                                   Foreground="{StaticResource TextMuted}"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="arrow" Grid.Column="1"
+                                               Text="⌄" FontSize="11"
+                                               Foreground="{StaticResource TextMuted}"
+                                               VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="False">
+                                    <Setter TargetName="arrow" Property="Text" Value="›"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource BgHover}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </ToggleButton.Template>
+                </ToggleButton>
 
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                              Visibility="{Binding IsChecked, ElementName=ToolboxToggle, Converter={StaticResource BoolToVisConverter}}">
                     <StackPanel Margin="8,6,8,16">
 
                         <TextBlock Text="ACTIUNI" Style="{StaticResource ToolboxSectionLabel}"/>
@@ -1236,6 +1757,351 @@
                                 <TextBlock Text="Radiera" VerticalAlignment="Center"/>
                             </StackPanel>
                         </RadioButton>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- PANOU DREAPTA — ANALIZĂ AI (vizibil doar în modul Optimizat)    -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <Border Grid.Column="2"
+                Width="230"
+                Background="{StaticResource BgPanel}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1,0,0,0"
+                Visibility="{Binding IsOptimizedViewActive, Converter={StaticResource BoolToVisConverter}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Border Grid.Row="0"
+                        Background="{StaticResource BgSection}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="0,0,0,1" Padding="12,10">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Rectangle Width="3" Height="12" Fill="{StaticResource Accent}"
+                                   VerticalAlignment="Center" RadiusX="1" RadiusY="1" Margin="0,0,8,0"/>
+                        <TextBlock Text="ANALIZĂ AI OPTIMIZARE"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                   Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10,8,10,16"
+                                Visibility="{Binding HasCompareStats, Converter={StaticResource BoolToVisConverter}}">
+
+                        <!-- ── SCOR GENERAL AI ─────────────────────────────── -->
+                        <Border Background="{StaticResource BgSection}" CornerRadius="8"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                                Padding="10,10" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="SCOR OPTIMIZARE" FontSize="8" FontWeight="Bold"
+                                               FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,0,0,4"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding AfterStats.OverallScore, StringFormat='{}{0:F0}'}"
+                                                   FontSize="28" FontWeight="Bold" FontFamily="Consolas"
+                                                   Foreground="{StaticResource Accent}"/>
+                                        <TextBlock Text="/100" FontSize="12" FontFamily="Consolas"
+                                                   Foreground="{StaticResource TextMuted}" VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <!-- bara progres fixa (nu depinde de converter) -->
+                                    <Grid Height="4" Margin="0,4,0,0">
+                                        <Border CornerRadius="2" Background="#1A1A28"/>
+                                        <Border x:Name="ScoreProgressBar" CornerRadius="2" Background="{StaticResource Accent}"
+                                                HorizontalAlignment="Left"/>
+                                    </Grid>
+                                </StackPanel>
+                                <!-- Litera scor -->
+                                <Border Grid.Column="1" Width="36" Height="36" CornerRadius="8"
+                                        Background="{StaticResource Accent}" Margin="8,0,0,0">
+                                    <TextBlock Text="{Binding AfterStats.ScoreGrade}"
+                                               FontSize="18" FontWeight="Bold" FontFamily="Consolas"
+                                               Foreground="White"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- ── DISTRIBUȚIE SEMNAL ──────────────────────────── -->
+                        <TextBlock Text="DISTRIBUȚIE SEMNAL" FontSize="8" FontWeight="Bold"
+                                   FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,0,0,6"/>
+
+                        <!-- Excelent -->
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="36"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Excelent" FontSize="9" FontFamily="Consolas"
+                                       Foreground="#22C55E" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Height="8" CornerRadius="2" Background="#1A1A28" VerticalAlignment="Center" Margin="4,0">
+                                <Border x:Name="BarExcellent" Height="8" CornerRadius="2" Background="#22C55E" HorizontalAlignment="Left"/>
+                            </Border>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#22C55E"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.ExcellentPercent, StringFormat='{}{0:F0}%'}"/>
+                        </Grid>
+
+                        <!-- Bun -->
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="36"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Bun" FontSize="9" FontFamily="Consolas"
+                                       Foreground="#A3E635" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Height="8" CornerRadius="2" Background="#1A1A28" VerticalAlignment="Center" Margin="4,0">
+                                <Border x:Name="BarGood" Height="8" CornerRadius="2" Background="#A3E635" HorizontalAlignment="Left"/>
+                            </Border>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#A3E635"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.GoodPercent, StringFormat='{}{0:F0}%'}"/>
+                        </Grid>
+
+                        <!-- Mediu -->
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="36"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Mediu" FontSize="9" FontFamily="Consolas"
+                                       Foreground="#EAB308" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Height="8" CornerRadius="2" Background="#1A1A28" VerticalAlignment="Center" Margin="4,0">
+                                <Border x:Name="BarFair" Height="8" CornerRadius="2" Background="#EAB308" HorizontalAlignment="Left"/>
+                            </Border>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#EAB308"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.FairPercent, StringFormat='{}{0:F0}%'}"/>
+                        </Grid>
+
+                        <!-- Slab -->
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="36"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Slab" FontSize="9" FontFamily="Consolas"
+                                       Foreground="#F97316" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Height="8" CornerRadius="2" Background="#1A1A28" VerticalAlignment="Center" Margin="4,0">
+                                <Border x:Name="BarPoor" Height="8" CornerRadius="2" Background="#F97316" HorizontalAlignment="Left"/>
+                            </Border>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#F97316"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.PoorPercent, StringFormat='{}{0:F0}%'}"/>
+                        </Grid>
+
+                        <!-- Fără semnal -->
+                        <Grid Margin="0,2,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="36"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Fără" FontSize="9" FontFamily="Consolas"
+                                       Foreground="#EF4444" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" Height="8" CornerRadius="2" Background="#1A1A28" VerticalAlignment="Center" Margin="4,0">
+                                <Border x:Name="BarDead" Height="8" CornerRadius="2" Background="#EF4444" HorizontalAlignment="Left"/>
+                            </Border>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#EF4444"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.DeadZonePercent, StringFormat='{}{0:F0}%'}"/>
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Opacity="0.4" Margin="0,0,0,8"/>
+
+                        <!-- ── COMPARAȚIE ÎNAINTE / DUPĂ ────────────────────── -->
+                        <TextBlock Text="COMPARAȚIE ÎNAINTE / DUPĂ" FontSize="8" FontWeight="Bold"
+                                   FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,0,0,6"/>
+
+                        <Grid Margin="0,0,0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="38"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Metric" FontSize="8" FontFamily="Consolas" Foreground="{StaticResource TextMuted}"/>
+                            <TextBlock Grid.Column="1" Text="Înaint." FontSize="8" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="După" FontSize="8" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="Δ" FontSize="8" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" HorizontalAlignment="Center"/>
+                        </Grid>
+                        <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Opacity="0.3" Margin="0,0,0,4"/>
+
+                        <!-- Acoperire -->
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="40"/><ColumnDefinition Width="38"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Acoperire" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding BeforeStats.CoveragePercent, StringFormat='{}{0:F0}%'}"/>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#22C55E" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.CoveragePercent, StringFormat='{}{0:F0}%'}"/>
+                            <TextBlock Grid.Column="3" FontSize="9" FontFamily="Consolas" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding CoverageDelta, StringFormat='{}{0:+0;-0;0}%'}">
+                                <TextBlock.Style><Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Success}"/>
+                                    <Style.Triggers><DataTrigger Binding="{Binding CoverageDelta, Converter={StaticResource SignConverter}}" Value="-1">
+                                        <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+                                    </DataTrigger></Style.Triggers>
+                                </Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <!-- Excelent -->
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="40"/><ColumnDefinition Width="38"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Excelent" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding BeforeStats.ExcellentPercent, StringFormat='{}{0:F0}%'}"/>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#22C55E" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.ExcellentPercent, StringFormat='{}{0:F0}%'}"/>
+                            <TextBlock Grid.Column="3" FontSize="9" FontFamily="Consolas" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding ExcellentDelta, StringFormat='{}{0:+0;-0;0}%'}">
+                                <TextBlock.Style><Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Success}"/>
+                                    <Style.Triggers><DataTrigger Binding="{Binding ExcellentDelta, Converter={StaticResource SignConverter}}" Value="-1">
+                                        <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+                                    </DataTrigger></Style.Triggers>
+                                </Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <!-- Semnal mediu -->
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="40"/><ColumnDefinition Width="38"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Sig. mediu" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding BeforeStats.AverageSignal, StringFormat='{}{0:F0}'}"/>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#22C55E" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.AverageSignal, StringFormat='{}{0:F0}'}"/>
+                            <TextBlock Grid.Column="3" FontSize="9" FontFamily="Consolas" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding SignalDelta, StringFormat='{}{0:+0;-0;0}'}">
+                                <TextBlock.Style><Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Success}"/>
+                                    <Style.Triggers><DataTrigger Binding="{Binding SignalDelta, Converter={StaticResource SignConverter}}" Value="-1">
+                                        <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+                                    </DataTrigger></Style.Triggers>
+                                </Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <!-- Zone moarte -->
+                        <Grid Margin="0,2,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/><ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="40"/><ColumnDefinition Width="38"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Zone moarte" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding BeforeStats.DeadZonePercent, StringFormat='{}{0:F0}%'}"/>
+                            <TextBlock Grid.Column="2" FontSize="9" FontFamily="Consolas" Foreground="#22C55E" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding AfterStats.DeadZonePercent, StringFormat='{}{0:F0}%'}"/>
+                            <TextBlock Grid.Column="3" FontSize="9" FontFamily="Consolas" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{Binding DeadZoneDelta, StringFormat='{}{0:+0;-0;0}%'}">
+                                <TextBlock.Style><Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+                                    <Style.Triggers><DataTrigger Binding="{Binding DeadZoneDelta, Converter={StaticResource SignConverter}}" Value="-1">
+                                        <Setter Property="Foreground" Value="{StaticResource Success}"/>
+                                    </DataTrigger></Style.Triggers>
+                                </Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Opacity="0.4" Margin="0,0,0,8"/>
+
+                        <!-- ── METRICI AVANSATE (extra față de Ekahau) ────────── -->
+                        <TextBlock Text="METRICI AVANSATE" FontSize="8" FontWeight="Bold"
+                                   FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,0,0,6"/>
+
+                        <Grid Margin="0,3">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Viteză est. după" FontSize="9" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" FontSize="9" FontFamily="Consolas" Foreground="#22C55E" FontWeight="SemiBold"
+                                       Text="{Binding AfterStats.EstimatedThroughputMbps, StringFormat='{}{0:F0} Mbps'}"/>
+                        </Grid>
+
+                        <Grid Margin="0,3">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Viteză est. înainte" FontSize="9" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextMuted}"
+                                       Text="{Binding BeforeStats.EstimatedThroughputMbps, StringFormat='{}{0:F0} Mbps'}"/>
+                        </Grid>
+
+                        <Grid Margin="0,3">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Uniformitate" FontSize="9" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
+                                       ToolTip="Cât de uniform e semnalul în toată zona acoperită. 100% = semnal identic peste tot."/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <TextBlock FontSize="9" FontFamily="Consolas" Foreground="#A3E635" FontWeight="SemiBold"
+                                           Text="{Binding AfterStats.UniformityScore, StringFormat='{}{0:F0}%'}"/>
+                                <TextBlock FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="3,0,0,0"
+                                           Text="{Binding UniformityDelta, StringFormat='({0:+0;-0;0}%)'}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid Margin="0,3">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Pereți traversați" FontSize="9" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
+                                       ToolTip="Nr. mediu de pereți pe care semnalul îi traversează. Mai puțin = atenuare mai mică."/>
+                            <TextBlock Grid.Column="1" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextMuted}"
+                                       Text="{Binding AfterStats.AvgWallCount, StringFormat='{}{0:F1}'}"/>
+                        </Grid>
+
+                        <Grid Margin="0,3,0,8">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Gain viteză AI" FontSize="9" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
+                                       ToolTip="Creșterea vitezei estimate față de poziția inițială a routerului."/>
+                            <TextBlock Grid.Column="1" FontSize="9" FontFamily="Consolas" FontWeight="Bold"
+                                       Text="{Binding ThroughputDelta, StringFormat='{}{0:+0;-0;0} Mbps'}">
+                                <TextBlock.Style><Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Success}"/>
+                                    <Style.Triggers><DataTrigger Binding="{Binding ThroughputDelta, Converter={StaticResource SignConverter}}" Value="-1">
+                                        <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+                                    </DataTrigger></Style.Triggers>
+                                </Style></TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+
+                        <!-- Confidență AI -->
+                        <Border Background="#0A0A14" CornerRadius="4" Padding="8,6" Margin="0,0,0,4">
+                            <StackPanel>
+                                <TextBlock Text="CONFIDENȚA AI" FontSize="8" FontWeight="Bold"
+                                           FontFamily="Consolas" Foreground="{StaticResource TextMuted}" Margin="0,0,0,3"/>
+                                <TextBlock FontSize="9" FontFamily="Consolas" Foreground="{StaticResource TextSecondary}"
+                                           TextWrapping="Wrap">
+                                    <Run Text="{Binding AfterStats.TotalSamples, StringFormat='{}{0:N0}'}"/>
+                                    <Run Text=" eșantioane evaluate · Log-Distance Path Loss + Raycasting"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
 
                     </StackPanel>
                 </ScrollViewer>

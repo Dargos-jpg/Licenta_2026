@@ -30,6 +30,23 @@ public sealed class WifiNetwork
     /// </summary>
     public int SignalQuality => CalculateSignalQuality(SignalStrength);
 
+    /// <summary>
+    /// SNR estimat din RSSI + noise floor tipic per bandă (IEEE 802.11-2020).
+    /// 2.4 GHz: noise floor ≈ -95 dBm · 5 GHz: noise floor ≈ -98 dBm
+    /// </summary>
+    public int EstimatedSnr => Math.Max(0, Channel > 14
+        ? SignalStrength + 98   // 5 GHz
+        : SignalStrength + 95); // 2.4 GHz
+
+    public string SnrQuality => EstimatedSnr switch
+    {
+        >= 40 => "Excelent",
+        >= 25 => "Bun",
+        >= 15 => "Acceptabil",
+        >= 10 => "Slab",
+        _     => "Critic"
+    };
+
     private static int CalculateSignalQuality(int dbm)
     {
         // Convert dBm to percentage (0-100)

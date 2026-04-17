@@ -5,7 +5,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using WifiSignalOptimizer.Models;
-using WifiSignalOptimizer.Views;
 
 namespace WifiSignalOptimizer.Services
 {
@@ -23,7 +22,7 @@ namespace WifiSignalOptimizer.Services
             double pixelsPerMeter)
         {
             if (points == null || points.Count == 0 || width <= 0 || height <= 0)
-                return null;
+                return null!;
 
             int stride = width * 4;
             byte[] pixels = new byte[height * stride];
@@ -88,6 +87,72 @@ namespace WifiSignalOptimizer.Services
 
             var bitmap = BitmapSource.Create(
                 width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
+            bitmap.Freeze();
+            return bitmap;
+        }
+
+        // ══════════════════════════════════════════════════
+        // DEAD ZONE OVERLAY
+        // ══════════════════════════════════════════════════
+
+        /// <summary>
+        /// Generează un overlay care marchează zonele cu semnal sub prag cu o mască roșie semi-transparentă.
+        /// Suprapus pe heatmap-ul normal, arată vizual "găurile" de acoperire.
+        /// </summary>
+        public BitmapSource GenerateDeadZoneOverlay(
+            List<HeatmapPoint> points,
+            List<MapElement> obstacles,
+            StrokeCollection drawnWalls,
+            int width, int height,
+            double pixelsPerMeter,
+            double thresholdDbm = -75.0)
+        {
+            if (points == null || points.Count == 0 || width <= 0 || height <= 0)
+                return null!;
+
+            const double idwPower = 3.0;
+            var wallSegments = ExtractWallSegments(drawnWalls);
+            double ppm = pixelsPerMeter > 0 ? pixelsPerMeter : 20.0;
+
+            int stride = width * 4;
+            byte[] pixels = new byte[height * stride];
+
+            for (int y = 0; y < height; y += 2)
+            for (int x = 0; x < width; x += 2)
+            {
+                double numerator = 0, denominator = 0;
+                foreach (var p in points)
+                {
+                    double distPx = Math.Sqrt(Math.Pow(x - p.X, 2) + Math.Pow(y - p.Y, 2));
+                    if (distPx < 1.0) distPx = 1.0;
+                    double wallPenalty = GetObstacleAttenuation(x, y, p.X, p.Y, obstacles, wallSegments);
+                    double airLoss = (distPx / ppm) * 2.5;
+                    double effectiveSignal = p.SignalStrength - wallPenalty - airLoss;
+                    double weight = 1.0 / Math.Pow(distPx, idwPower);
+                    numerator  += weight * effectiveSignal;
+                    denominator += weight;
+                }
+                double signal = denominator > 0 ? numerator / denominator : -100;
+
+                if (signal < thresholdDbm)
+                {
+                    // Intensitate corelată cu cât e sub prag: mai roșu = mai slab
+                    double intensity = Math.Min(1.0, (thresholdDbm - signal) / 20.0);
+                    byte alpha = (byte)(160 * intensity);
+
+                    for (int dy = 0; dy < 2 && y + dy < height; dy++)
+                    for (int dx = 0; dx < 2 && x + dx < width; dx++)
+                    {
+                        int idx = (y + dy) * stride + (x + dx) * 4;
+                        pixels[idx]     = 0;    // B
+                        pixels[idx + 1] = 0;    // G
+                        pixels[idx + 2] = 200;  // R
+                        pixels[idx + 3] = alpha;
+                    }
+                }
+            }
+
+            var bitmap = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
             bitmap.Freeze();
             return bitmap;
         }

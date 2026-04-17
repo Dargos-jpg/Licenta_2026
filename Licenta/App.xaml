@@ -10,9 +10,11 @@
         <!-- CONVERTORI                                      -->
         <!-- ═══════════════════════════════════════════════ -->
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
-        <conv:InvertBooleanConverter         x:Key="InvertBoolConverter"/>
-        <conv:NullToVisibilityConverter      x:Key="NullToVisibilityConverter"/>
+        <conv:InvertBooleanConverter          x:Key="InvertBoolConverter"/>
+        <conv:NullToVisibilityConverter       x:Key="NullToVisibilityConverter"/>
         <conv:InvertNullToVisibilityConverter x:Key="InvertNullToVisibilityConverter"/>
+        <conv:SignConverter                   x:Key="SignConverter"/>
+        <conv:WizardStepBrushConverter        x:Key="WizardStepBrushConverter"/>
 
         <!-- ═══════════════════════════════════════════════ -->
         <!-- PALETĂ — Doctor Wi-Fi Dark Theme               -->

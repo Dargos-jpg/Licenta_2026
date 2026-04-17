@@ -26,10 +26,10 @@ public partial class MainWindow : Window
     private bool _isDragging = false;
     private double _currentZoom = 1.0;
     private double _currentRotation = 0.0;
-    private TransformGroup _imageTransformGroup;
-    private ScaleTransform _scaleTransform;
-    private RotateTransform _rotateTransform;
-    private TranslateTransform _translateTransform;
+    private TransformGroup _imageTransformGroup = null!;
+    private ScaleTransform _scaleTransform = null!;
+    private RotateTransform _rotateTransform = null!;
+    private TranslateTransform _translateTransform = null!;
 
     // Drawing mode variables
     private Point _startPoint;
@@ -84,15 +84,38 @@ public partial class MainWindow : Window
             CollectSketchAndSave();
         });
 
+        WeakReferenceMessenger.Default.Register<StartCalibrationFromWizardMessage>(this, (r, m) =>
+        {
+            if (_viewModel.FloorPlan == null && GridBackground.Visibility == Visibility.Collapsed)
+            {
+                _viewModel.StatusMessage = "Incarca mai intai un plan!";
+                return;
+            }
+            _isCalibrating = true;
+            Mouse.OverrideCursor = Cursors.Cross;
+            _viewModel.StatusMessage = "CALIBRARE: Tine click stanga apasat si trage o linie intre 2 puncte cu distanta cunoscuta.";
+        });
+
+        WeakReferenceMessenger.Default.Register<ActivateDrawLineForCalibrationMessage>(this, (r, m) =>
+        {
+            if (_viewModel.FloorPlan == null && GridBackground.Visibility == Visibility.Collapsed)
+                return;
+            if (ToolDrawLine != null)
+                ToolDrawLine.IsChecked = true; // declanșează ToolDrawLine_Checked automat
+            _viewModel.StatusMessage = "Deseneaza linii drepte peste peretii din plan. Foloseste trusa de unelte din dreapta.";
+        });
+
         WeakReferenceMessenger.Default.Register<ResetMapCanvasMessage>(this, (r, m) =>
         {
-            // Curăță pereții desenați
+            // Curăță TOATE canvas-urile vizuale
             EditorCanvas.Strokes.Clear();
             EditorCanvas.EditingMode = InkCanvasEditingMode.None;
-
-            // Curăță stampile și indicatorul routerului de pe ambele canvas-uri
             ObjectsCanvas.Children.Clear();
             OptimizedObjectsCanvas?.Children.Clear();
+            SurveyPointsCanvas.Children.Clear();    // ← includem și punctele de măsurare
+
+            GridBackground.Visibility = Visibility.Collapsed;
+            _viewModel.IsGridCanvasActive = false;
 
             // Resetează transformările imaginii (zoom, rotație, translație)
             ResetImageTransformations();
@@ -125,26 +148,47 @@ public partial class MainWindow : Window
                     $"Poziție găsită: ({optimalPosition.X:F0}, {optimalPosition.Y:F0}). " +
                     $"Se generează simularea {bandLabel}...";
 
-                // 2. Calibrăm TX power din măsurători reale + generăm heatmap optimizat
-                //    Calibrarea face ca -54 dBm să simuleze mai bine decât -68 dBm, indiferent de bandă
-                double calibratedTx = 20.0; // fallback
+                // 2. Calibrăm TX power + generăm heatmap optimizat + calculăm statisticile
+                double calibratedTx = 20.0;
+                CoverageStats? afterStats  = null;
+                CoverageStats? beforeStats = null;
                 var optimizedHeatmap = await Task.Run(() =>
                 {
                     var optimizer = new RouterOptimizationService();
                     optimizer.Configure(m.Channel);
 
-                    // Calibrare TX power din semnalul real măsurat în punctele de survey
                     calibratedTx = optimizer.CalibrateTxPower(
                         optimalPosition, surveys, m.TargetSSID, m.Scale);
 
-                    return optimizer.GenerateOptimizedHeatmap(
+                    var bmp = optimizer.GenerateOptimizedHeatmap(
                         optimalPosition, elements, strokes,
                         (int)m.Width, (int)m.Height, m.Scale);
+
+                    // Statistici DUPĂ optimizare (model fizic din poziția optimă)
+                    afterStats = optimizer.CalculateOptimizedStats(
+                        optimalPosition, elements, strokes,
+                        (int)m.Width, (int)m.Height, m.Scale);
+
+                    // Statistici ÎNAINTE (IDW din survey points reale)
+                    var heatmapPoints = surveys.Select(p =>
+                    {
+                        var net = p.DetectedNetworks.FirstOrDefault(n => n.SSID == m.TargetSSID);
+                        return new HeatmapPoint(p.X, p.Y, net?.SignalStrength ?? -100);
+                    }).Where(hp => hp.SignalStrength > -100).ToList();
+
+                    if (heatmapPoints.Count >= 2)
+                        beforeStats = RouterOptimizationService.CalculateRealStats(
+                            heatmapPoints, elements, strokes,
+                            (int)m.Width, (int)m.Height, m.Scale);
+
+                    return bmp;
                 });
 
                 // 3. Actualizăm ViewModel și comutăm la modul Optimizat
                 _viewModel.OptimizedHeatmapOverlay = optimizedHeatmap;
                 _viewModel.IsOptimizationDone      = true;
+                _viewModel.BeforeStats             = beforeStats;
+                _viewModel.AfterStats              = afterStats;
                 _viewModel.CentralViewMode         = CentralViewMode.Optimized;
 
                 // 4. Desenăm indicatorul routerului NUMAI pe canvas-ul Optimizat
@@ -188,6 +232,10 @@ public partial class MainWindow : Window
 
                 _viewModel.HeatmapOverlay = heatmap;
 
+                // Regenerăm dead zone overlay dacă e activ
+                if (_viewModel.IsDeadZoneOverlayActive)
+                    await RegenerateDeadZoneOverlayAsync(filteredPoints, obstacles, strokes, m.Width, m.Height, m.Scale);
+
                 string calibrareInfo = _viewModel.IsCalibrated
                     ? $"calibrat: {_viewModel.PixelsPerMeter:F1} px/m"
                     : "necalibrat";
@@ -207,10 +255,40 @@ public partial class MainWindow : Window
         _viewModel.PropertyChanged += (s, e) =>
         {
             if (e.PropertyName == nameof(_viewModel.FloorPlan) && _viewModel.FloorPlan != null)
-            {
                 ResetImageTransformations();
-            }
+
+            if (e.PropertyName == nameof(_viewModel.AfterStats) && _viewModel.AfterStats != null)
+                UpdateStatsBarWidths(_viewModel.AfterStats);
         };
+
+        // Injectăm accesul la statisticile de acoperire în DoctorPanel (pentru export PDF)
+        DoctorPanel.GetCoverageStats = () => (_viewModel.BeforeStats, _viewModel.AfterStats);
+
+        // Hook InkCanvas stroke collection for undo/redo support
+        Loaded += (_, _) =>
+        {
+            EditorCanvas.StrokeCollected += EditorCanvas_StrokeCollected;
+        };
+
+        // Ctrl+Z / Ctrl+Y keyboard shortcuts
+        InputBindings.Add(new KeyBinding(_viewModel.UndoCommand, Key.Z, ModifierKeys.Control));
+        InputBindings.Add(new KeyBinding(_viewModel.RedoCommand, Key.Y, ModifierKeys.Control));
+    }
+
+    private void EditorCanvas_StrokeCollected(object sender, InkCanvasStrokeCollectedEventArgs e)
+    {
+        var stroke = e.Stroke;
+        _viewModel.PushUndoAction(
+            undo: () =>
+            {
+                EditorCanvas.Strokes.Remove(stroke);
+                _viewModel.StatusMessage = "Undo: Perete desenat eliminat.";
+            },
+            redo: () =>
+            {
+                EditorCanvas.Strokes.Add(stroke);
+                _viewModel.StatusMessage = "Redo: Perete desenat readăugat.";
+            });
     }
 
     #region Image Transformations
@@ -242,10 +320,16 @@ public partial class MainWindow : Window
 
         if (_viewModel.FloorPlan != null)
         {
-            MapCanvas.Width = _viewModel.FloorPlan.PixelWidth;
-            MapCanvas.Height = _viewModel.FloorPlan.PixelHeight;
-            MapContent.Width = _viewModel.FloorPlan.PixelWidth;
-            MapContent.Height = _viewModel.FloorPlan.PixelHeight;
+            // Use device-independent size (accounts for DPI scaling)
+            double dpiScaleX = _viewModel.FloorPlan.DpiX / 96.0;
+            double dpiScaleY = _viewModel.FloorPlan.DpiY / 96.0;
+            double w = _viewModel.FloorPlan.PixelWidth  / dpiScaleX;
+            double h = _viewModel.FloorPlan.PixelHeight / dpiScaleY;
+
+            MapCanvas.Width  = w;
+            MapCanvas.Height = h;
+            MapContent.Width  = w;
+            MapContent.Height = h;
         }
     }
 
@@ -523,6 +607,7 @@ public partial class MainWindow : Window
 
     private void RedrawSurveyPoints(IReadOnlyList<SurveyPoint> surveyPoints)
     {
+        SurveyPointsCanvas.Children.Clear(); // curăță orice rămășiță
         foreach (var point in surveyPoints)
         {
             int strongestSignal = point.DetectedNetworks.Count > 0
@@ -588,40 +673,55 @@ public partial class MainWindow : Window
 
     #region Drawing Mode
 
-    private void StartSketch_Click(object sender, RoutedEventArgs e)
+    private void StartDrawOverPlan_Click(object sender, RoutedEventArgs e)
     {
         DrawingOverlayUI.Visibility = Visibility.Visible;
         EditorCanvas.Strokes.Clear();
         ObjectsCanvas.Children.Clear();
+        GridBackground.Visibility = Visibility.Collapsed;
+        _viewModel.StatusMessage = "Mod desen: trasează linii drepte peste pereții din plan.";
+        ActivateDefaultDrawTool();
+        _viewModel.AdvanceWizardIfNeeded();
+    }
 
-        if (_viewModel.FloorPlan == null)
-        {
-            MapCanvas.Width = 2000;
-            MapCanvas.Height = 1500;
-            MapContent.Width = 2000;
-            MapContent.Height = 1500;
+    private void StartNewGridCanvas_Click(object sender, RoutedEventArgs e)
+    {
+        DrawingOverlayUI.Visibility = Visibility.Visible;
+        EditorCanvas.Strokes.Clear();
+        ObjectsCanvas.Children.Clear();
+        _viewModel.FloorPlan = null;
 
-            GridBackground.Visibility = Visibility.Visible;
-            _viewModel.PixelsPerMeter = GRID_SIZE;
-            _viewModel.IsCalibrated = true;
-            _viewModel.StatusMessage = "Schiță nouă: 1 pătrățel = 1 metru.";
-        }
-        else
-        {
-            GridBackground.Visibility = Visibility.Collapsed;
-            _viewModel.StatusMessage = "Mod desenare: Desenează pereții direct peste planul încărcat.";
-        }
+        MapCanvas.Width = 2000;
+        MapCanvas.Height = 1500;
+        MapContent.Width = 2000;
+        MapContent.Height = 1500;
 
-        // Activăm instrumentul "Perete liber" automat dacă nu e niciunul selectat
+        GridBackground.Visibility = Visibility.Visible;
+        _viewModel.PixelsPerMeter = GRID_SIZE;
+        _viewModel.IsCalibrated = true;
+        _viewModel.IsGridCanvasActive = true;
+        _viewModel.StatusMessage = "Plan grilă nou: 1 pătrățel = 1 metru. Desenează pereții de la zero.";
+        ActivateDefaultDrawTool();
+        _viewModel.AdvanceWizardIfNeeded();
+    }
+
+    private void ActivateDefaultDrawTool()
+    {
         if (ToolDrawWall.IsChecked != true && ToolDrawLine.IsChecked != true && ToolEraser.IsChecked != true)
-        {
             ToolDrawWall.IsChecked = true;
-        }
         else
         {
             EditorCanvas.IsHitTestVisible = true;
             _isCalibrating = false;
         }
+    }
+
+    private void StartSketch_Click(object sender, RoutedEventArgs e)
+    {
+        if (_viewModel.FloorPlan == null && GridBackground.Visibility != Visibility.Visible)
+            StartNewGridCanvas_Click(sender, e);
+        else
+            StartDrawOverPlan_Click(sender, e);
     }
 
     private void CancelSketch_Click(object sender, RoutedEventArgs e)
@@ -718,6 +818,7 @@ public partial class MainWindow : Window
     private void SetBasicMode_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.IsExpertMode = false;
+        _viewModel.IsWizardMinimized = false; // redeschide wizardul la revenirea în Basic
         _viewModel.StatusMessage = "Mod Basic activat.";
     }
 
@@ -848,7 +949,7 @@ public partial class MainWindow : Window
         UpdateActiveToolLabel("DrawWall");
 
         if (DrawingOverlayUI.Visibility != Visibility.Visible)
-            StartSketch_Click(null, null);
+            StartSketch_Click(null!, null!);
 
         _isLineToolActive = false;
         _isCalibrating = false;
@@ -863,7 +964,7 @@ public partial class MainWindow : Window
         UpdateActiveToolLabel("DrawLine");
 
         if (DrawingOverlayUI.Visibility != Visibility.Visible)
-            StartSketch_Click(null, null);
+            StartSketch_Click(null!, null!);
 
         _isLineToolActive = true;
         _isCalibrating = false;
@@ -877,7 +978,7 @@ public partial class MainWindow : Window
         UpdateActiveToolLabel("Eraser");
 
         if (DrawingOverlayUI.Visibility != Visibility.Visible)
-            StartSketch_Click(null, null);
+            StartSketch_Click(null!, null!);
 
         _isLineToolActive = false;
         _isCalibrating = false;
@@ -922,6 +1023,95 @@ public partial class MainWindow : Window
             _viewModel.StatusMessage = "Calibrare anulata de utilizator.";
         }
     }
+
+    #region Export PNG
+
+    private void ExportHeatmapPng_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Title  = "Exportă Heatmap ca PNG",
+                Filter = "Imagini PNG|*.png",
+                FileName = $"heatmap_{_viewModel.SelectedNetwork?.SSID ?? "wifi"}_{DateTime.Now:yyyyMMdd_HHmm}.png"
+            };
+
+            if (dialog.ShowDialog() != true) return;
+
+            // Randăm MapContent (plan + heatmap + stampile) la dimensiunea reală
+            var target = MapContent;
+            var renderBitmap = new RenderTargetBitmap(
+                (int)target.ActualWidth, (int)target.ActualHeight,
+                96, 96, PixelFormats.Pbgra32);
+
+            target.Measure(target.RenderSize);
+            target.Arrange(new Rect(target.RenderSize));
+            renderBitmap.Render(target);
+
+            using var stream = System.IO.File.Create(dialog.FileName);
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+            encoder.Save(stream);
+
+            _viewModel.StatusMessage = $"Heatmap exportat: {System.IO.Path.GetFileName(dialog.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Eroare la export:\n{ex.Message}", "Export PNG", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    #endregion
+
+    #region Dead Zone Overlay
+
+    private async void ToggleDeadZoneOverlay_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.IsDeadZoneOverlayActive = !_viewModel.IsDeadZoneOverlayActive;
+
+        if (!_viewModel.IsDeadZoneOverlayActive)
+        {
+            _viewModel.DeadZoneOverlay = null;
+            return;
+        }
+
+        if (_viewModel.HeatmapOverlay == null) return;
+
+        var allPoints = _viewModel.GetSurveyPoints();
+        var obstacles = _viewModel.GetMapElements().ToList();
+        var strokes   = EditorCanvas.Strokes;
+        var ssid      = _viewModel.SelectedNetwork?.SSID;
+        int w         = (int)FloorPlanImage.ActualWidth;
+        int h         = (int)FloorPlanImage.ActualHeight;
+        double scale  = _viewModel.PixelsPerMeter;
+
+        var filteredPoints = allPoints.Select(p =>
+        {
+            var net = p.DetectedNetworks.FirstOrDefault(n => n.SSID == ssid);
+            return new HeatmapPoint(p.X, p.Y, net?.SignalStrength ?? -100);
+        }).Where(hp => hp.SignalStrength > -100).ToList();
+
+        await RegenerateDeadZoneOverlayAsync(filteredPoints, obstacles, strokes, w, h, scale);
+    }
+
+    private async Task RegenerateDeadZoneOverlayAsync(
+        List<HeatmapPoint> points,
+        List<MapElement> obstacles,
+        System.Windows.Ink.StrokeCollection strokes,
+        int w, int h, double scale)
+    {
+        var overlay = await Task.Run(() =>
+        {
+            var svc = new HeatmapService();
+            return svc.GenerateDeadZoneOverlay(
+                points, obstacles, strokes, w, h, scale,
+                _viewModel.DeadZoneThreshold);
+        });
+        _viewModel.DeadZoneOverlay = overlay;
+    }
+
+    #endregion
 
     #region Options Menu (hover dropdown)
 
@@ -1350,6 +1540,30 @@ public partial class MainWindow : Window
     #endregion
 
 
+    /// <summary>
+    /// Actualizează lățimea barelor de distribuție semnal din panoul Analiză AI.
+    /// Barele sunt Border-uri cu x:Name — lățimea se calculează proporțional cu containerul.
+    /// </summary>
+    private void UpdateStatsBarWidths(WifiSignalOptimizer.Models.CoverageStats stats)
+    {
+        // Așteptăm layout-ul să fie gata, apoi setăm lățimile
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+        {
+            double maxW = BarExcellent.ActualWidth > 0
+                ? (BarExcellent.Parent as Border)?.ActualWidth ?? 90
+                : 90;
+            // Dacă containerul nu e vizibil încă, nu facem nimic
+            if (maxW <= 0) return;
+
+            BarExcellent.Width   = maxW * stats.ExcellentPercent / 100.0;
+            BarGood.Width        = maxW * stats.GoodPercent      / 100.0;
+            BarFair.Width        = maxW * stats.FairPercent      / 100.0;
+            BarPoor.Width        = maxW * stats.PoorPercent      / 100.0;
+            BarDead.Width        = maxW * stats.DeadZonePercent  / 100.0;
+            ScoreProgressBar.Width = (ScoreProgressBar.Parent as Grid)?.ActualWidth * stats.OverallScore / 100.0 ?? 0;
+        });
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         WeakReferenceMessenger.Default.Unregister<ClearSurveyPointsMessage>(this);
@@ -1359,11 +1573,10 @@ public partial class MainWindow : Window
         WeakReferenceMessenger.Default.Unregister<RequestSaveWithSketchMessage>(this);
         WeakReferenceMessenger.Default.Unregister<RequestOptimalRouterMessage>(this);
         WeakReferenceMessenger.Default.Unregister<RequestHeatmapGenerationMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<StartCalibrationFromWizardMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<ActivateDrawLineForCalibrationMessage>(this);
         base.OnClosed(e);
     }
 }
 
-/// <summary>
-/// Punct simplu pentru HeatmapService — X, Y și semnalul filtrat per rețea.
-/// </summary>
-public sealed record HeatmapPoint(double X, double Y, int SignalStrength);
+// HeatmapPoint mutat în Models/HeatmapPoint.cs

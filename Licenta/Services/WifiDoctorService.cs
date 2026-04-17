@@ -20,7 +20,8 @@ public class WifiDoctorService : IWifiDoctorService
             TargetSSID = targetNetwork.SSID,
             CurrentChannel = targetNetwork.Channel,
             CurrentSignalStrength = targetNetwork.SignalStrength,
-            CurrentSignalQuality = targetNetwork.SignalQuality
+            CurrentSignalQuality  = targetNetwork.SignalQuality,
+            EstimatedSnr          = targetNetwork.EstimatedSnr
         };
 
         // === 1. DETECȚIE BANDĂ AUTOMATĂ (2.4 GHz vs 5 GHz) ===

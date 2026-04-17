@@ -14,6 +14,7 @@ public class NetworkHealthReport
 
     public int CurrentSignalStrength { get; set; }
     public int CurrentSignalQuality { get; set; }
+    public int EstimatedSnr { get; set; }
 
     public double OverallHealthScore { get; set; }
     public string HealthClassification { get; set; } = "Acceptabil";

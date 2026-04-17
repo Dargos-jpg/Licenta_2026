@@ -714,4 +714,202 @@ public class RouterOptimizationService
 
         return Distance(point, closest);
     }
+
+    // ══════════════════════════════════════════════════════════
+    // STATISTICI ACOPERIRE
+    // ══════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Calculează statistici de acoperire pentru heatmap-ul OPTIMIZAT (model fizic).
+    /// Eșantionează o grilă de puncte și aplică modelul Log-Distance Path Loss.
+    /// </summary>
+    public CoverageStats CalculateOptimizedStats(
+        Point routerPosition,
+        List<MapElement> obstacles,
+        StrokeCollection drawnWalls,
+        int width, int height,
+        double pixelsPerMeter)
+    {
+        var wallSegments = ExtractWallSegments(drawnWalls);
+        double ppm = pixelsPerMeter > 1.0 ? pixelsPerMeter : 50.0;
+        const int step = 8;
+
+        int total = 0, excellent = 0, good = 0, fair = 0, poor = 0, dead = 0;
+        double signalSum = 0, signalSumSq = 0;
+        double wallCountSum = 0;
+
+        for (int y = 0; y < height; y += step)
+        for (int x = 0; x < width; x += step)
+        {
+            double distM = Distance(routerPosition, new Point(x, y)) / ppm;
+            if (_maxRangeM > 0 && distM >= _maxRangeM) continue;
+
+            double signal = _isMlo
+                ? Math.Max(
+                    CalcSignalForBand(routerPosition, new Point(x, y), obstacles, wallSegments, ppm, 2.4, 2.8, 5.0, 20.0),
+                    Math.Max(
+                        CalcSignalForBand(routerPosition, new Point(x, y), obstacles, wallSegments, ppm, 5.0, 3.3, 8.0, 26.0),
+                        CalcSignalForBand(routerPosition, new Point(x, y), obstacles, wallSegments, ppm, 6.0, 3.7, 12.0, 26.0)))
+                : CalculateSignalAtPoint(routerPosition, new Point(x, y), obstacles, wallSegments, ppm);
+
+            // Count wall crossings for this point
+            double wallAtten = GetObstacleAttenuationStatic(routerPosition.X, routerPosition.Y, x, y, obstacles, wallSegments);
+            double wallCount = wallAtten / Math.Max(1.0, _wallPenaltyDbm);
+
+            total++;
+            signalSum   += signal;
+            signalSumSq += signal * signal;
+            wallCountSum += wallCount;
+
+            if      (signal > -55) excellent++;
+            else if (signal > -70) good++;
+            else if (signal > -80) fair++;
+            else if (signal > -90) poor++;
+            else                   dead++;
+        }
+
+        if (total == 0) return new CoverageStats(0, 0, 0, 0, 0, -100, 0, 0, 0);
+
+        double avg     = signalSum / total;
+        double variance = signalSumSq / total - avg * avg;
+        double stdDev  = Math.Sqrt(Math.Max(0, variance));
+        // Uniformity: 100% means 0 std dev (perfect), drops as variance increases
+        double uniformity = Math.Max(0, 100.0 - stdDev * 3.0);
+
+        return new CoverageStats(
+            ExcellentPercent: excellent * 100.0 / total,
+            GoodPercent:      good      * 100.0 / total,
+            FairPercent:      fair      * 100.0 / total,
+            PoorPercent:      poor      * 100.0 / total,
+            DeadZonePercent:  dead      * 100.0 / total,
+            AverageSignal:    avg,
+            UniformityScore:  uniformity,
+            AvgWallCount:     wallCountSum / total,
+            TotalSamples:     total);
+    }
+
+    /// <summary>
+    /// Calculează statistici de acoperire pentru heatmap-ul REAL (IDW din survey points).
+    /// Folosit pentru comparația "înainte" de optimizare.
+    /// </summary>
+    public static CoverageStats CalculateRealStats(
+        List<HeatmapPoint> points,
+        List<MapElement> obstacles,
+        StrokeCollection drawnWalls,
+        int width, int height,
+        double pixelsPerMeter)
+    {
+        if (points == null || points.Count == 0)
+            return new CoverageStats(0, 0, 0, 0, 0, -100, 0, 0, 0);
+
+        const double idwPower = 3.0;
+        double ppm = pixelsPerMeter > 1.0 ? pixelsPerMeter : 50.0;
+        const int step = 8;
+
+        var wallSegs = ExtractWallSegmentsStatic(drawnWalls);
+
+        int total = 0, excellent = 0, good = 0, fair = 0, poor = 0, dead = 0;
+        double signalSum = 0, signalSumSq = 0;
+
+        for (int y = 0; y < height; y += step)
+        for (int x = 0; x < width; x += step)
+        {
+            double numerator = 0, denominator = 0;
+            foreach (var p in points)
+            {
+                double distPx = Math.Sqrt(Math.Pow(x - p.X, 2) + Math.Pow(y - p.Y, 2));
+                if (distPx < 1.0) distPx = 1.0;
+                double wallPenalty = GetObstacleAttenuationStatic(x, y, p.X, p.Y, obstacles, wallSegs);
+                double airLoss = (distPx / ppm) * 2.5;
+                double effectiveSignal = p.SignalStrength - wallPenalty - airLoss;
+                double weight = 1.0 / Math.Pow(distPx, idwPower);
+                numerator  += weight * effectiveSignal;
+                denominator += weight;
+            }
+            double signal = denominator > 0 ? numerator / denominator : -100;
+            if (signal < -95) continue;
+
+            total++;
+            signalSum   += signal;
+            signalSumSq += signal * signal;
+
+            if      (signal > -55) excellent++;
+            else if (signal > -70) good++;
+            else if (signal > -80) fair++;
+            else if (signal > -90) poor++;
+            else                   dead++;
+        }
+
+        if (total == 0) return new CoverageStats(0, 0, 0, 0, 0, -100, 0, 0, 0);
+
+        double avg      = signalSum / total;
+        double variance = signalSumSq / total - avg * avg;
+        double stdDev   = Math.Sqrt(Math.Max(0, variance));
+        double uniformity = Math.Max(0, 100.0 - stdDev * 3.0);
+
+        return new CoverageStats(
+            ExcellentPercent: excellent * 100.0 / total,
+            GoodPercent:      good      * 100.0 / total,
+            FairPercent:      fair      * 100.0 / total,
+            PoorPercent:      poor      * 100.0 / total,
+            DeadZonePercent:  dead      * 100.0 / total,
+            AverageSignal:    avg,
+            UniformityScore:  uniformity,
+            AvgWallCount:     0,   // real stats nu au pozitie fixa de router
+            TotalSamples:     total);
+    }
+
+    private static List<(double X1, double Y1, double X2, double Y2)> ExtractWallSegmentsStatic(
+        StrokeCollection strokes)
+    {
+        var list = new List<(double, double, double, double)>();
+        if (strokes == null) return list;
+        foreach (var stroke in strokes)
+        {
+            var pts = stroke.StylusPoints;
+            for (int i = 0; i < pts.Count - 1; i++)
+                list.Add((pts[i].X, pts[i].Y, pts[i + 1].X, pts[i + 1].Y));
+        }
+        return list;
+    }
+
+    private static double GetObstacleAttenuationStatic(
+        double x1, double y1, double x2, double y2,
+        List<MapElement> obstacles,
+        List<(double X1, double Y1, double X2, double Y2)> wallSegments)
+    {
+        double total = 0;
+        const double r = 20.0;
+        if (obstacles != null)
+            foreach (var obs in obstacles)
+                if (LineIntersectsCircleStatic(x1, y1, x2, y2, obs.X + r, obs.Y + r, r))
+                    total += obs.SignalPenalty;
+        if (wallSegments != null)
+            foreach (var w in wallSegments)
+                if (LinesIntersectStatic(x1, y1, x2, y2, w.X1, w.Y1, w.X2, w.Y2))
+                    total += 10.0;
+        return total;
+    }
+
+    private static bool LinesIntersectStatic(
+        double x1, double y1, double x2, double y2,
+        double x3, double y3, double x4, double y4)
+    {
+        double d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+        if (Math.Abs(d) < 1e-10) return false;
+        double t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d;
+        double u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / d;
+        return t > 0 && t < 1 && u > 0 && u < 1;
+    }
+
+    private static bool LineIntersectsCircleStatic(
+        double x1, double y1, double x2, double y2,
+        double cx, double cy, double r)
+    {
+        double dx = x2 - x1, dy = y2 - y1;
+        double lenSq = dx * dx + dy * dy;
+        if (lenSq == 0) return (cx-x1)*(cx-x1)+(cy-y1)*(cy-y1) <= r*r;
+        double t = Math.Max(0, Math.Min(1, ((cx-x1)*dx+(cy-y1)*dy)/lenSq));
+        return (cx-(x1+t*dx))*(cx-(x1+t*dx))+(cy-(y1+t*dy))*(cy-(y1+t*dy)) <= r*r;
+    }
 }

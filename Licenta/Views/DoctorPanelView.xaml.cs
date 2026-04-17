@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using WifiSignalOptimizer.Models;
+using WifiSignalOptimizer.Services;
 
 namespace WifiSignalOptimizer.Views;
 
@@ -30,12 +31,18 @@ public partial class DoctorPanelView : UserControl
             panel.PopulateUI(report);
     }
 
+    // Injectat din MainWindow pentru accesul la statisticile de acoperire
+    public Func<(WifiSignalOptimizer.Models.CoverageStats? Before, WifiSignalOptimizer.Models.CoverageStats? After)>? GetCoverageStats { get; set; }
+
     public DoctorPanelView()
     {
         InitializeComponent();
         SizeChanged += (_, _) =>
         {
-            if (Report != null) DrawInterferenceChart(Report);
+            if (Report == null) return;
+            DrawInterferenceChart(Report);
+            bool is24 = Report.FrequencyBand.Contains("2.4") || Report.CurrentChannel <= 14;
+            if (is24) DrawChannelOverlap(Report);
         };
     }
 
@@ -69,6 +76,12 @@ public partial class DoctorPanelView : UserControl
 
         CongestionText.Text = report.CongestionIndex.ToString();
 
+        SnrText.Text = report.EstimatedSnr.ToString();
+        SnrBrush.Color = report.EstimatedSnr >= 40 ? Color.FromRgb(34, 197, 94) :
+                         report.EstimatedSnr >= 25 ? Color.FromRgb(163, 230, 53) :
+                         report.EstimatedSnr >= 15 ? Color.FromRgb(234, 179, 8) :
+                                                     Color.FromRgb(239, 68, 68);
+
         HealthPctText.Text = report.OverallHealthScore.ToString("F0") + "%";
         HealthBarGrad.Color = scoreColor;
         HealthBar.Width = 0;
@@ -93,8 +106,12 @@ public partial class DoctorPanelView : UserControl
         NeighborSummaryText.Text = $"{report.TotalNeighbors} vecini în zonă";
         CanalOptimText.Text = $"Canal optim: CH{report.BestChannel}";
 
-        InterferenceChart.SizeChanged += (_, _) => DrawInterferenceChart(report);
         DrawInterferenceChart(report);
+
+        // Spectrul e vizibil doar pentru 2.4 GHz
+        bool is24 = report.FrequencyBand.Contains("2.4") || report.CurrentChannel <= 14;
+        SpectrumContainer.Visibility = is24 ? Visibility.Visible : Visibility.Collapsed;
+        if (is24) DrawChannelOverlap(report);
 
         // Animăm bara de sănătate după layout
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
@@ -103,6 +120,13 @@ public partial class DoctorPanelView : UserControl
             if (barWidth > 10)
                 HealthBar.Width = barWidth * (report.OverallHealthScore / 100.0);
         });
+    }
+
+    private void ExportPdf_Click(object sender, RoutedEventArgs e)
+    {
+        if (Report == null) return;
+        var stats = GetCoverageStats?.Invoke();
+        ReportExportService.ExportDoctorReport(Report, stats?.Before, stats?.After);
     }
 
     private void DrawInterferenceChart(NetworkHealthReport report)
@@ -121,7 +145,7 @@ public partial class DoctorPanelView : UserControl
         if (channels.Count == 0) return;
 
         double maxScore = Math.Max(1, channels.Max(c => c.InterferenceScore));
-        double barWidth = Math.Max(4, (w - 40) / channels.Count - 6);
+        double barWidth = Math.Min(44, Math.Max(4, (w - 40) / channels.Count - 6));
         double chartH = h - 30;
 
         for (int i = 1; i <= 4; i++)
@@ -222,5 +246,146 @@ public partial class DoctorPanelView : UserControl
         if (score >= 50) return (Color.FromRgb(234, 179, 8), "#EAB308");
         if (score >= 30) return (Color.FromRgb(249, 115, 22), "#F97316");
         return (Color.FromRgb(239, 68, 68), "#EF4444");
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 2.4 GHz Channel Spectrum Overlap Visualizer
+    // Channels 1-13, each 20 MHz wide, center freq = 2412 + (ch-1)*5 MHz
+    // ─────────────────────────────────────────────────────────────
+    private void DrawChannelOverlap(NetworkHealthReport report)
+    {
+        ChannelSpectrumCanvas.Children.Clear();
+
+        double w = ChannelSpectrumCanvas.ActualWidth;
+        double h = ChannelSpectrumCanvas.ActualHeight;
+        if (w < 20 || h < 10) return;
+
+        // Only relevant for 2.4 GHz band
+        bool is24GHz = report.FrequencyBand.Contains("2.4") ||
+                       report.CurrentChannel <= 14;
+        if (!is24GHz) return;
+
+        // Frequency range: 2401 – 2485 MHz (covers all 13 channels + bandwidth edges)
+        const double freqMin = 2401.0;
+        const double freqMax = 2485.0;
+        const double freqRange = freqMax - freqMin;
+
+        double xForFreq(double mhz) => (mhz - freqMin) / freqRange * w;
+
+        // Collect active channels from report
+        var activeChannels = report.ChannelDetails
+            .Where(c => c.Channel >= 1 && c.Channel <= 13 && c.InterferenceScore > 0)
+            .Select(c => c.Channel)
+            .ToHashSet();
+        activeChannels.Add(report.CurrentChannel);
+
+        int currentCh = report.CurrentChannel;
+
+        // Draw each channel's 20 MHz band as a semi-transparent rounded rectangle
+        for (int ch = 1; ch <= 13; ch++)
+        {
+            double centerMhz = 2412.0 + (ch - 1) * 5.0;
+            double startMhz  = centerMhz - 10.0;
+            double endMhz    = centerMhz + 10.0;
+
+            double x1 = xForFreq(startMhz);
+            double x2 = xForFreq(endMhz);
+            double barW = x2 - x1;
+
+            bool isCurrent   = ch == currentCh;
+            bool isNeighbor  = activeChannels.Contains(ch) && !isCurrent;
+            bool isNonOverlap = ch == 1 || ch == 6 || ch == 11;
+
+            // Background fill per channel type
+            Color fillColor;
+            double opacity;
+            if (isCurrent)       { fillColor = Color.FromRgb(34, 197, 94);  opacity = 0.55; }
+            else if (isNeighbor) { fillColor = Color.FromRgb(59, 130, 246); opacity = 0.45; }
+            else                 { fillColor = Color.FromRgb(80, 80, 120);   opacity = 0.15; }
+
+            var rect = new Rectangle
+            {
+                Width  = barW,
+                Height = h - 14,
+                RadiusX = 3, RadiusY = 3,
+                Fill = new SolidColorBrush(fillColor) { Opacity = opacity }
+            };
+            Canvas.SetLeft(rect, x1);
+            Canvas.SetTop(rect, 0);
+            ChannelSpectrumCanvas.Children.Add(rect);
+
+            // Red tint where this channel overlaps with the current channel
+            if (!isCurrent && activeChannels.Contains(ch))
+            {
+                // Compute overlap with current channel
+                double curCenter = 2412.0 + (currentCh - 1) * 5.0;
+                double curStart  = curCenter - 10.0;
+                double curEnd    = curCenter + 10.0;
+                double ovStart   = Math.Max(startMhz, curStart);
+                double ovEnd     = Math.Min(endMhz,   curEnd);
+
+                if (ovEnd > ovStart)
+                {
+                    double ox1 = xForFreq(ovStart);
+                    double ox2 = xForFreq(ovEnd);
+                    var ovRect = new Rectangle
+                    {
+                        Width  = ox2 - ox1,
+                        Height = h - 14,
+                        RadiusX = 2, RadiusY = 2,
+                        Fill = new SolidColorBrush(Color.FromRgb(239, 68, 68)) { Opacity = 0.45 }
+                    };
+                    Canvas.SetLeft(ovRect, ox1);
+                    Canvas.SetTop(ovRect, 0);
+                    ChannelSpectrumCanvas.Children.Add(ovRect);
+                }
+            }
+
+            // Channel number label — only for active or non-overlapping channels
+            if (isCurrent || isNeighbor || isNonOverlap)
+            {
+                double centerX = (x1 + x2) / 2.0;
+                var label = new TextBlock
+                {
+                    Text       = ch.ToString(),
+                    FontSize   = 8,
+                    FontFamily = new FontFamily("Consolas"),
+                    Foreground = isCurrent
+                        ? new SolidColorBrush(Color.FromRgb(34, 197, 94))
+                        : isNeighbor
+                            ? new SolidColorBrush(Color.FromRgb(59, 130, 246))
+                            : new SolidColorBrush(Color.FromArgb(90, 180, 180, 220)),
+                    TextAlignment = TextAlignment.Center,
+                    Width = barW
+                };
+                Canvas.SetLeft(label, x1);
+                Canvas.SetTop(label, h - 13);
+                ChannelSpectrumCanvas.Children.Add(label);
+            }
+        }
+
+        // Frequency axis line at bottom of bars
+        var axis = new Line
+        {
+            X1 = 0, Y1 = h - 14, X2 = w, Y2 = h - 14,
+            Stroke = new SolidColorBrush(Color.FromArgb(60, 200, 200, 255)),
+            StrokeThickness = 1
+        };
+        ChannelSpectrumCanvas.Children.Add(axis);
+
+        // Mark non-overlapping recommended channels with a small dot above
+        foreach (int ch in new[] { 1, 6, 11 })
+        {
+            double centerMhz = 2412.0 + (ch - 1) * 5.0;
+            double cx = xForFreq(centerMhz);
+            var dot = new Ellipse
+            {
+                Width = 4, Height = 4,
+                Fill  = new SolidColorBrush(Color.FromArgb(120, 200, 200, 255))
+            };
+            Canvas.SetLeft(dot, cx - 2);
+            Canvas.SetTop(dot, 0);
+            ChannelSpectrumCanvas.Children.Add(dot);
+        }
     }
 }

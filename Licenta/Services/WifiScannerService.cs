@@ -50,53 +50,69 @@ public sealed class WifiScannerService : IWifiScannerService
     }
 
     /// <summary>
-    /// Scans real WiFi networks using ManagedNativeWifi
+    /// Scans real WiFi networks using ManagedNativeWifi.
+    /// Triggers an active scan first, then reads BSS cache.
     /// </summary>
     private async Task<IReadOnlyList<WifiNetwork>> ScanRealNetworksAsync()
     {
         try
         {
+            // ── Pas 1 + 2: declanșăm scan activ și așteptăm finalizarea ────────
+            // ScanNetworksAsync trimite wlan_scan pe toate interfețele și
+            // blochează până când toate raportează un rezultat (max timeout).
+            try
+            {
+                await NativeWifi.ScanNetworksAsync(TimeSpan.FromSeconds(4));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ScanNetworksAsync failed: {ex.Message}");
+                // continuăm oricum — poate avem date în cache
+            }
+
+            // ── Pas 3: citim lista BSS actualizată ────────────────────────────
             var networks = new List<WifiNetwork>();
 
-            // Perform async scan
             await Task.Run(() =>
             {
-                // Get all available BSS networks
                 var bssNetworks = NativeWifi.EnumerateBssNetworks()
-                    .Where(network => !string.IsNullOrWhiteSpace(network.Ssid.ToString()))
+                    .Where(n => !string.IsNullOrWhiteSpace(n.Ssid.ToString()))
                     .ToList();
 
                 foreach (var network in bssNetworks)
                 {
                     try
                     {
-                        var wifiNetwork = new WifiNetwork
+                        networks.Add(new WifiNetwork
                         {
-                            SSID = network.Ssid.ToString(),
-                            BSSID = network.Bssid?.ToString() ?? "00:00:00:00:00:00",
-                            SignalStrength = network.SignalStrength,
-                            Channel = GetChannelFromFrequency(network.Frequency)
-                        };
-
-                        networks.Add(wifiNetwork);
+                            SSID            = network.Ssid.ToString(),
+                            BSSID           = network.Bssid?.ToString() ?? "00:00:00:00:00:00",
+                            SignalStrength   = network.SignalStrength,
+                            Channel         = GetChannelFromFrequency(network.Frequency)
+                        });
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error parsing network: {ex.Message}");
-                        continue;
+                        System.Diagnostics.Debug.WriteLine($"Error parsing BSS network: {ex.Message}");
                     }
                 }
             });
 
-            if (networks.Count == 0)
+            // Deduplicate: keep strongest signal per SSID
+            var deduped = networks
+                .GroupBy(n => n.SSID)
+                .Select(g => g.OrderByDescending(n => n.SignalStrength).First())
+                .OrderByDescending(n => n.SignalStrength)
+                .ToList();
+
+            if (deduped.Count == 0)
             {
-                System.Diagnostics.Debug.WriteLine("No networks found in real scan. Using simulation.");
+                System.Diagnostics.Debug.WriteLine(
+                    "BSS list empty after active scan — adapter may be disabled or no networks nearby.");
                 return await ScanSimulatedNetworksAsync();
             }
 
-            // Sort by signal strength (strongest first)
-            _lastScanResults = [.. networks.OrderByDescending(n => n.SignalStrength)];
-
+            _lastScanResults = deduped;
             return _lastScanResults.AsReadOnly();
         }
         catch (Exception ex)
