@@ -1,0 +1,1 @@
+C:\Users\drago\AppData\Local\Programs\Python\Python314\python.exe: can't open file 'C:\\UsersdragoAppDataLocalTempextract_v6.py': [Errno 2] No such file or directory
