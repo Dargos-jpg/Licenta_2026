@@ -38,6 +38,11 @@ public sealed class WifiNetwork
         ? SignalStrength + 98   // 5 GHz
         : SignalStrength + 95); // 2.4 GHz
 
+    public string BandLabel  => Channel > 177 ? "6G" : Channel > 14 ? "5G" : "2.4G";
+
+    /// <summary>Ultimii 8 caractere din BSSID (ex: "DD:EE:FF") — suficient pentru a distinge AP-uri.</summary>
+    public string ShortBssid => BSSID?.Length >= 8 ? BSSID[^8..] : BSSID ?? "—";
+
     public string SnrQuality => EstimatedSnr switch
     {
         >= 40 => "Excelent",

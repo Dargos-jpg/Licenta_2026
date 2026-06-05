@@ -31,7 +31,7 @@
                     ElementType.BrickWall => 6,   // Cărămidă
                     ElementType.WoodDoor => 3,   // Ușă lemn
                     ElementType.Fridge => 15,  // Metal masiv
-                    ElementType.Microwave => 10,  // Interferențe + metal
+                    ElementType.Microwave => 8,   // Interferențe + metal
                     ElementType.TV => 5,   // Metal + electronice
                     _ => 0
                 };

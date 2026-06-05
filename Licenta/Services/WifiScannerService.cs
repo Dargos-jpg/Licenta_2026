@@ -98,9 +98,11 @@ public sealed class WifiScannerService : IWifiScannerService
                 }
             });
 
-            // Deduplicate: keep strongest signal per SSID
+            // Deduplicate: keep strongest signal per SSID+Band combination.
+            // Same SSID on 2.4 GHz and 5 GHz are kept as separate entries so
+            // Doctor WiFi can analyse each band independently.
             var deduped = networks
-                .GroupBy(n => n.SSID)
+                .GroupBy(n => $"{n.SSID}|{(n.Channel > 177 ? "6GHz" : n.Channel > 14 ? "5GHz" : "2.4GHz")}")
                 .Select(g => g.OrderByDescending(n => n.SignalStrength).First())
                 .OrderByDescending(n => n.SignalStrength)
                 .ToList();

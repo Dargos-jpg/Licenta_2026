@@ -555,11 +555,21 @@
                                                     <iconPacks:PackIconMaterial Grid.Column="0" Kind="Wifi"
                                                                                 Width="11" Height="11" VerticalAlignment="Center"
                                                                                 Foreground="{StaticResource TextMuted}"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding SSID}"
-                                                               FontSize="11" FontFamily="Segoe UI"
-                                                               Foreground="{StaticResource TextPrimary}"
-                                                               VerticalAlignment="Center"
-                                                               TextTrimming="CharacterEllipsis" Margin="4,0"/>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                                VerticalAlignment="Center" Margin="4,0">
+                                                        <TextBlock Text="{Binding SSID}"
+                                                                   FontSize="11" FontFamily="Segoe UI"
+                                                                   Foreground="{StaticResource TextPrimary}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   MaxWidth="115"/>
+                                                        <Border Background="#1A4FC3F7" CornerRadius="2"
+                                                                Margin="4,0,0,0" Padding="3,1">
+                                                            <TextBlock Text="{Binding BandLabel}"
+                                                                       FontSize="8" FontFamily="Segoe UI"
+                                                                       Foreground="#4FC3F7"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Border>
+                                                    </StackPanel>
                                                     <ProgressBar Grid.Column="2"
                                                                  Value="{Binding SignalQuality, Mode=OneWay}"
                                                                  Height="3" VerticalAlignment="Center"/>
@@ -584,19 +594,39 @@
                                 <Border Background="#0A0A0F" CornerRadius="6" Padding="0" ClipToBounds="True">
                                     <DataGrid ItemsSource="{Binding VisibleNetworks}"
                                               SelectedItem="{Binding SelectedNetwork}"
-                                              MaxHeight="200" FontFamily="Consolas" FontSize="11">
+                                              MaxHeight="220" FontFamily="Consolas" FontSize="10"
+                                              ColumnHeaderHeight="22" RowHeight="20"
+                                              GridLinesVisibility="Horizontal"
+                                              HorizontalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="SSID" Binding="{Binding SSID}" Width="*"/>
-                                            <DataGridTextColumn Header="dBm"  Binding="{Binding SignalStrength}" Width="40"/>
-                                            <DataGridTextColumn Header="Ch"   Binding="{Binding Channel}" Width="28"/>
-                                            <DataGridTemplateColumn Header="Sig" Width="38">
-                                                <DataGridTemplateColumn.CellTemplate>
-                                                    <DataTemplate>
-                                                        <ProgressBar Value="{Binding SignalQuality, Mode=OneWay}"
-                                                                     Height="3" Margin="2,0"/>
-                                                    </DataTemplate>
-                                                </DataGridTemplateColumn.CellTemplate>
-                                            </DataGridTemplateColumn>
+                                            <!-- SSID — trunchiat, flex -->
+                                            <DataGridTextColumn Header="SSID"
+                                                                Binding="{Binding SSID}"
+                                                                Width="*" MinWidth="70"/>
+                                            <!-- Bandă: 2.4G / 5G / 6G -->
+                                            <DataGridTextColumn Header="Band"
+                                                                Binding="{Binding BandLabel}"
+                                                                Width="34"/>
+                                            <!-- Semnal în dBm -->
+                                            <DataGridTextColumn Header="dBm"
+                                                                Binding="{Binding SignalStrength}"
+                                                                Width="38"/>
+                                            <!-- Canal -->
+                                            <DataGridTextColumn Header="Ch"
+                                                                Binding="{Binding Channel}"
+                                                                Width="26"/>
+                                            <!-- SNR estimat (dB) -->
+                                            <DataGridTextColumn Header="SNR"
+                                                                Binding="{Binding EstimatedSnr}"
+                                                                Width="34"/>
+                                            <!-- Calitate SNR: Excelent/Bun/Acceptabil/Slab/Critic -->
+                                            <DataGridTextColumn Header="Calitate"
+                                                                Binding="{Binding SnrQuality}"
+                                                                Width="64"/>
+                                            <!-- Ultimii 3 octeti MAC — identifică AP-ul fizic -->
+                                            <DataGridTextColumn Header="AP (MAC)"
+                                                                Binding="{Binding ShortBssid}"
+                                                                Width="62"/>
                                         </DataGrid.Columns>
                                     </DataGrid>
                                 </Border>
