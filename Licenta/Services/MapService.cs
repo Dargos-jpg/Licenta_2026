@@ -4,14 +4,14 @@ using System.Windows.Media.Imaging;
 namespace WifiSignalOptimizer.Services;
 
 /// <summary>
-/// Service for loading and managing floor plan images
+/// service for loading and managing floor plan images
 /// </summary>
 public sealed class MapService : IMapService
 {
     public string[] SupportedExtensions => [".png", ".jpg", ".jpeg", ".bmp", ".gif"];
 
     /// <summary>
-    /// Încarcă un plan de pe disc (fișier imagine).
+    /// loads a floor plan from disk (image file).
     /// </summary>
     public async Task<BitmapImage?> LoadFloorPlanAsync(string filePath)
     {
@@ -20,10 +20,10 @@ public sealed class MapService : IMapService
             if (!File.Exists(filePath))
                 return null;
 
-            // Citim bytes-ii pe background thread (I/O)
+            // read the bytes on a background thread (I/O)
             byte[] fileBytes = await Task.Run(() => File.ReadAllBytes(filePath));
 
-            // BitmapImage cu StreamSource TREBUIE creat pe UI thread (STA)
+            // a BitmapImage with StreamSource must be created on the UI thread (STA)
             var bitmap = new BitmapImage();
             using var ms = new MemoryStream(fileBytes);
             bitmap.BeginInit();
@@ -41,8 +41,8 @@ public sealed class MapService : IMapService
     }
 
     /// <summary>
-    /// Reconstituie un BitmapImage dintr-un string Base64 (PNG salvat în proiect JSON).
-    /// Folosit la încărcarea proiectului pentru a restaura schița ca FloorPlan.
+    /// reconstructs a BitmapImage from a Base64 string (PNG saved in the project JSON).
+    /// used when loading a project to restore the sketch as the FloorPlan.
     /// </summary>
     public async Task<BitmapImage?> LoadFromBase64Async(string base64)
     {
@@ -51,10 +51,10 @@ public sealed class MapService : IMapService
 
         try
         {
-            // Decodăm Base64 pe background thread (CPU)
+            // decode Base64 on a background thread (CPU)
             byte[] bytes = await Task.Run(() => Convert.FromBase64String(base64));
 
-            // BitmapImage cu StreamSource TREBUIE creat pe UI thread (STA)
+            // a BitmapImage with StreamSource must be created on the UI thread (STA)
             var bitmap = new BitmapImage();
             using var ms = new MemoryStream(bytes);
             bitmap.BeginInit();

@@ -60,9 +60,7 @@ public static class ReportExportService
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // HEADER
-    // ─────────────────────────────────────────────────────────────────────────
+    // header
     private static void ComposeHeader(IContainer c)
     {
         c.Background("#101014").Padding(16).Row(row =>
@@ -84,9 +82,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // FOOTER
-    // ─────────────────────────────────────────────────────────────────────────
+    // footer
     private static void ComposeFooter(IContainer c)
     {
         c.Background("#101014").Padding(10).Row(row =>
@@ -103,9 +99,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // MAIN CONTENT
-    // ─────────────────────────────────────────────────────────────────────────
+    // main content
     private static void ComposeContent(
         IContainer c,
         NetworkHealthReport report,
@@ -116,41 +110,39 @@ public static class ReportExportService
         {
             col.Spacing(14);
 
-            // ── 1. INFO REȚEA + SCOR ──────────────────────────────────────
+            // 1. network info + score
             col.Item().Element(e => NetworkInfoSection(e, report));
 
-            // ── 2. REZUMAT ÎN LIMBAJ SIMPLU ───────────────────────────────
+            // 2. plain-language summary
             col.Item().Element(e => ExecutiveSummarySection(e, report));
 
-            // ── 3. METRICI SEMNAL (pills) ─────────────────────────────────
+            // 3. signal metrics (pills)
             col.Item().Element(e => SignalMetricsSection(e, report));
 
-            // ── 4. ANALIZĂ K-MEANS CANALE ────────────────────────────────
+            // 4. K-Means channel analysis
             col.Item().Element(e => ChannelAnalysisSection(e, report));
 
-            // ── 5. VECINI PROBLEMATICI ────────────────────────────────────
+            // 5. problematic neighbors
             if (report.ProblematicNeighbors.Count > 0)
                 col.Item().Element(e => NeighborsSection(e, report));
 
-            // ── 6. PROBLEME DETECTATE ─────────────────────────────────────
+            // 6. detected issues
             if (report.DetectedIssues.Count > 0)
                 col.Item().Element(e => IssuesSection(e, report));
 
-            // ── 7. RECOMANDĂRI AI ─────────────────────────────────────────
+            // 7. AI recommendations
             col.Item().Element(e => RecommendationsSection(e, report));
 
-            // ── 8. STATISTICI ACOPERIRE (dacă avem heatmap + optimizare) ──
+            // 8. coverage statistics (if heatmap + optimization are available)
             if (before != null && after != null)
                 col.Item().Element(e => CoverageCompareSection(e, before, after));
 
-            // ── 9. LEGENDĂ SCALE ──────────────────────────────────────────
+            // 9. scale legend
             col.Item().Element(e => LegendSection(e));
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 1: Informații rețea + scor mare
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 1: network info + large score
     private static void NetworkInfoSection(IContainer c, NetworkHealthReport report)
     {
         var (scoreHex, _) = ScoreColor(report.OverallHealthScore);
@@ -191,9 +183,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 2: Rezumat executiv în limbaj simplu
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 2: plain-language executive summary
     private static void ExecutiveSummarySection(IContainer c, NetworkHealthReport report)
     {
         var (scoreHex, _) = ScoreColor(report.OverallHealthScore);
@@ -267,9 +257,7 @@ public static class ReportExportService
             : "Urmeaza recomandarile din sectiunea de mai jos.";
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 3: Metrici semnal cu quality labels
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 3: signal metrics with quality labels
     private static void SignalMetricsSection(IContainer c, NetworkHealthReport report)
     {
         string rssiLabel = report.CurrentSignalStrength switch
@@ -320,7 +308,7 @@ public static class ReportExportService
                     $"{report.SpeedEfficiency}%", "din viteza maxima",
                     "#A3E635"));
             });
-            // Explicatie metrici
+            // metric explanations
             col.Item().PaddingTop(5).Row(row =>
             {
                 row.RelativeItem().Text("RSSI = puterea semnalului receptionat (mai aproape de 0 = mai bun)")
@@ -332,9 +320,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 4: Tabel K-Means canale
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 4: K-Means channel table
     private static void ChannelAnalysisSection(IContainer c, NetworkHealthReport report)
     {
         var channelsToShow = report.ChannelDetails
@@ -403,9 +389,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 5: Vecini problematici
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 5: problematic neighbors
     private static void NeighborsSection(IContainer c, NetworkHealthReport report)
     {
         c.Column(col =>
@@ -449,9 +433,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 6: Probleme detectate
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 6: detected issues
     private static void IssuesSection(IContainer c, NetworkHealthReport report)
     {
         c.Column(outerCol =>
@@ -487,9 +469,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 7: Recomandări AI
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 7: AI recommendations
     private static void RecommendationsSection(IContainer c, NetworkHealthReport report)
     {
         c.Column(col =>
@@ -513,9 +493,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 8: Statistici acoperire
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 8: coverage statistics
     private static void CoverageCompareSection(IContainer c, CoverageStats before, CoverageStats after)
     {
         c.Column(col =>
@@ -587,9 +565,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // SECTION 9: Legendă scale — ajutor pentru utilizatori non-tehnici
-    // ─────────────────────────────────────────────────────────────────────────
+    // section 9: scale legend, helps non-technical users
     private static void LegendSection(IContainer c)
     {
         c.Background("#101014").Border(1).BorderColor("#2A2A35").CornerRadius(6).Padding(12).Column(col =>
@@ -603,7 +579,7 @@ public static class ReportExportService
             });
             col.Item().PaddingTop(8).Row(row =>
             {
-                // Coloana 1: RSSI
+                // column 1: RSSI
                 row.RelativeItem().Column(sub =>
                 {
                     sub.Item().Text("SEMNAL RSSI (dBm)").FontSize(8).Bold().FontColor("#8888AA").FontFamily("Courier New");
@@ -614,7 +590,7 @@ public static class ReportExportService
                     sub.Item().Element(e => LegendRow(e, "sub -85", "Critic", "#EF4444"));
                 });
                 row.AutoItem().Width(16);
-                // Coloana 2: SNR
+                // column 2: SNR
                 row.RelativeItem().Column(sub =>
                 {
                     sub.Item().Text("SNR — Raport Semnal/Zgomot (dB)").FontSize(8).Bold().FontColor("#8888AA").FontFamily("Courier New");
@@ -624,7 +600,7 @@ public static class ReportExportService
                     sub.Item().Element(e => LegendRow(e, "sub 15 dB", "Slab — deconectari frecvente", "#EF4444"));
                 });
                 row.AutoItem().Width(16);
-                // Coloana 3: Congestie + Scor
+                // column 3: congestion + score
                 row.RelativeItem().Column(sub =>
                 {
                     sub.Item().Text("CONGESTIE CANAL (0-100)").FontSize(8).Bold().FontColor("#8888AA").FontFamily("Courier New");
@@ -653,9 +629,7 @@ public static class ReportExportService
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // HELPERS
-    // ─────────────────────────────────────────────────────────────────────────
+    // helpers
     private static void SectionTitle(IContainer c, string text)
     {
         c.Row(row =>

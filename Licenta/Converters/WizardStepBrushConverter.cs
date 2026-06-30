@@ -7,7 +7,7 @@ using WifiSignalOptimizer.ViewModels;
 namespace WifiSignalOptimizer.Converters;
 
 /// <summary>
-/// Returns blue brush for completed/active steps and grey for upcoming steps.
+/// returns a blue brush for completed/active steps and grey for upcoming steps.
 /// ConverterParameter = step index (0-based string).
 /// </summary>
 public sealed class WizardStepBrushConverter : IValueConverter

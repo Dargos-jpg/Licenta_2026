@@ -1,30 +1,30 @@
 namespace WifiSignalOptimizer.Models;
 
 /// <summary>
-/// Statistici complete de acoperire WiFi.
-/// Folosite pentru comparația înainte/după optimizare și panoul de analiză AI.
+/// complete WiFi coverage statistics.
+/// used for the before/after optimization comparison and the AI analysis panel.
 /// </summary>
 public record CoverageStats(
-    // ── Trepte semnal (% suprafață) ────────────────────────────────────
-    double ExcellentPercent,  // > -55 dBm  — streaming 4K, gaming
-    double GoodPercent,       // -55 / -70  — browsing, HD video
-    double FairPercent,       // -70 / -80  — e-mail, web de bază
-    double PoorPercent,       // -80 / -90  — conectivitate minimă
-    double DeadZonePercent,   // < -90 dBm  — fără semnal
+    // signal tiers (% of area)
+    double ExcellentPercent,  // > -55 dBm, 4K streaming, gaming
+    double GoodPercent,       // -55 / -70, browsing, HD video
+    double FairPercent,       // -70 / -80, email, basic web
+    double PoorPercent,       // -80 / -90, minimal connectivity
+    double DeadZonePercent,   // < -90 dBm, no signal
 
-    // ── Semnal mediu ────────────────────────────────────────────────────
+    // average signal
     double AverageSignal,     // dBm
 
-    // ── Metrici derivate ────────────────────────────────────────────────
-    double UniformityScore,   // 0–100: cât de uniform e semnalul (100 = perfect uniform)
-    double AvgWallCount,      // nr. mediu de pereți ce trebuie traversați (0 = fără date)
-    int    TotalSamples       // nr. eșantioane folosite la calcul
+    // derived metrics
+    double UniformityScore,   // 0-100: how uniform the signal is (100 = perfectly uniform)
+    double AvgWallCount,      // average number of walls to cross (0 = no data)
+    int    TotalSamples       // number of samples used in the calculation
 )
 {
-    // ── Acoperire utilizabilă (Excelent + Bun + Mediu) ─────────────────
+    // usable coverage (Excellent + Good + Fair)
     public double CoveragePercent => ExcellentPercent + GoodPercent + FairPercent;
 
-    // ── Viteză estimată (empiric din tabelul 802.11ac/ax) ───────────────
+    // estimated throughput (empirical, from the 802.11ac/ax table)
     public double EstimatedThroughputMbps => AverageSignal switch
     {
         > -50 => 300,
@@ -37,11 +37,11 @@ public record CoverageStats(
         _     => 1
     };
 
-    // ── Scor general 0–100 ──────────────────────────────────────────────
-    // Formulă în 2 componente:
-    // 1) Calitate semnal ÎN zona acoperită (normalizat la pixelii non-dead)
-    // 2) Procentul de acoperire totală (câtă suprafață are semnal)
-    // Asta evită penalizarea spațiului gol din afara casei.
+    // overall score 0-100
+    // formula has 2 components:
+    // 1) signal quality within the covered area (normalized to the non-dead pixels)
+    // 2) the total coverage percentage (how much area has signal)
+    // this avoids penalizing empty space outside the house.
     public double OverallScore
     {
         get
@@ -49,19 +49,19 @@ public record CoverageStats(
             double covered = ExcellentPercent + GoodPercent + FairPercent + PoorPercent;
             if (covered < 0.1) return 0;
 
-            // Calitate în zona acoperită (0–100)
+            // quality within the covered area (0-100)
             double qualityScore = (ExcellentPercent * 1.00 +
                                    GoodPercent      * 0.80 +
                                    FairPercent      * 0.50 +
                                    PoorPercent      * 0.10)
                                   / covered * 100.0;
 
-            // Scor final: 65% calitate + 35% acoperire
+            // final score: 65% quality + 35% coverage
             return Math.Clamp(qualityScore * 0.65 + covered * 0.35, 0, 100);
         }
     }
 
-    // ── Literă de scor ─────────────────────────────────────────────────
+    // letter grade
     public string ScoreGrade => OverallScore switch
     {
         >= 85 => "A",

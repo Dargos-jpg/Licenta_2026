@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.Mvvm.Messaging;
 using MahApps.Metro.IconPacks;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,13 +15,13 @@ using WifiSignalOptimizer.ViewModels;
 namespace WifiSignalOptimizer.Views;
 
 /// <summary>
-/// Interaction logic for MainWindow.xaml
+/// interaction logic for MainWindow.xaml
 /// </summary>
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
 
-    // Image manipulation variables
+    // image manipulation variables
     private Point _lastMousePosition;
     private bool _isDragging = false;
     private double _currentZoom = 1.0;
@@ -31,7 +31,7 @@ public partial class MainWindow : Window
     private RotateTransform _rotateTransform = null!;
     private TranslateTransform _translateTransform = null!;
 
-    // Drawing mode variables
+    // drawing mode variables
     private Point _startPoint;
     private bool _isDrawingLine = false;
     private bool _isLineToolActive = false;
@@ -39,7 +39,7 @@ public partial class MainWindow : Window
     private Line? _calibrationLine;
     private const int GRID_SIZE = 20;
 
-    // Drag & Drop for stamps
+    // drag and drop for stamps
     private FrameworkElement? _draggedImage;
     private Point _dragOffset;
     private bool _isDraggingElement = false;
@@ -75,7 +75,7 @@ public partial class MainWindow : Window
             foreach (var stroke in m.Strokes)
                 EditorCanvas.Strokes.Add(stroke);
 
-            // Nu activăm interfața de desenare aici, doar afișăm schița
+            // do not enable the drawing interface here, only display the sketch
             EditorCanvas.EditingMode = InkCanvasEditingMode.None;
         });
 
@@ -101,23 +101,23 @@ public partial class MainWindow : Window
             if (_viewModel.FloorPlan == null && GridBackground.Visibility == Visibility.Collapsed)
                 return;
             if (ToolDrawLine != null)
-                ToolDrawLine.IsChecked = true; // declanșează ToolDrawLine_Checked automat
+                ToolDrawLine.IsChecked = true; // triggers ToolDrawLine_Checked automatically
             _viewModel.StatusMessage = "Deseneaza linii drepte peste peretii din plan. Foloseste trusa de unelte din dreapta.";
         });
 
         WeakReferenceMessenger.Default.Register<ResetMapCanvasMessage>(this, (r, m) =>
         {
-            // Curăță TOATE canvas-urile vizuale
+            // clear all visual canvases
             EditorCanvas.Strokes.Clear();
             EditorCanvas.EditingMode = InkCanvasEditingMode.None;
             ObjectsCanvas.Children.Clear();
             OptimizedObjectsCanvas?.Children.Clear();
-            SurveyPointsCanvas.Children.Clear();    // ← includem și punctele de măsurare
+            SurveyPointsCanvas.Children.Clear();    // also includes the survey points
 
             GridBackground.Visibility = Visibility.Collapsed;
             _viewModel.IsGridCanvasActive = false;
 
-            // Resetează transformările imaginii (zoom, rotație, translație)
+            // reset image transformations (zoom, rotation, translation)
             ResetImageTransformations();
         });
 
@@ -129,12 +129,12 @@ public partial class MainWindow : Window
                 var surveys  = _viewModel.GetSurveyPoints().ToList();
                 var strokes  = EditorCanvas.Strokes;
 
-                // Configurăm simularea pe baza benzii rețelei selectate (2.4 / 5 / 6 GHz)
+                // configure the simulation based on the selected network's band (2.4 / 5 / 6 GHz)
                 string bandLabel = "2.4 GHz";
                 _viewModel.StatusMessage = "Calculăm poziția optimă cu AI Multi-Criteria...";
 
-                // 1. Găsim poziția optimă — cu SSID inclus pentru consistența cu măsurătorile reale
-                //    Rețelele cu mai multe puncte dense dau o poziție mai precisă
+                // 1. find the optimal position, with SSID included for consistency with real measurements
+                //    networks with more dense points give a more precise position
                 Point optimalPosition = await Task.Run(() =>
                 {
                     var optimizer = new RouterOptimizationService();
@@ -148,7 +148,7 @@ public partial class MainWindow : Window
                     $"Poziție găsită: ({optimalPosition.X:F0}, {optimalPosition.Y:F0}). " +
                     $"Se generează simularea {bandLabel}...";
 
-                // 2. Calibrăm TX power + generăm heatmap optimizat + calculăm statisticile
+                // 2. calibrate TX power, generate the optimized heatmap and compute the statistics
                 double calibratedTx = 20.0;
                 CoverageStats? afterStats  = null;
                 CoverageStats? beforeStats = null;
@@ -164,12 +164,12 @@ public partial class MainWindow : Window
                         optimalPosition, elements, strokes,
                         (int)m.Width, (int)m.Height, m.Scale);
 
-                    // Statistici DUPĂ optimizare (model fizic din poziția optimă)
+                    // statistics after optimization (physical model from the optimal position)
                     afterStats = optimizer.CalculateOptimizedStats(
                         optimalPosition, elements, strokes,
                         (int)m.Width, (int)m.Height, m.Scale);
 
-                    // Statistici ÎNAINTE (IDW din survey points reale)
+                    // statistics before (IDW from real survey points)
                     var heatmapPoints = surveys.Select(p =>
                     {
                         var net = p.DetectedNetworks.FirstOrDefault(n => n.SSID == m.TargetSSID);
@@ -184,14 +184,14 @@ public partial class MainWindow : Window
                     return bmp;
                 });
 
-                // 3. Actualizăm ViewModel și comutăm la modul Optimizat
+                // 3. update the ViewModel and switch to Optimized mode
                 _viewModel.OptimizedHeatmapOverlay = optimizedHeatmap;
                 _viewModel.IsOptimizationDone      = true;
                 _viewModel.BeforeStats             = beforeStats;
                 _viewModel.AfterStats              = afterStats;
                 _viewModel.CentralViewMode         = CentralViewMode.Optimized;
 
-                // 4. Desenăm indicatorul routerului NUMAI pe canvas-ul Optimizat
+                // 4. draw the router indicator only on the Optimized canvas
                 DrawOptimalRouterOnOptimizedCanvas(optimalPosition);
 
                 _viewModel.StatusMessage =
@@ -232,7 +232,7 @@ public partial class MainWindow : Window
 
                 _viewModel.HeatmapOverlay = heatmap;
 
-                // Regenerăm dead zone overlay dacă e activ
+                // regenerate the dead zone overlay if active
                 if (_viewModel.IsDeadZoneOverlayActive)
                     await RegenerateDeadZoneOverlayAsync(filteredPoints, obstacles, strokes, m.Width, m.Height, m.Scale);
 
@@ -261,10 +261,10 @@ public partial class MainWindow : Window
                 UpdateStatsBarWidths(_viewModel.AfterStats);
         };
 
-        // Injectăm accesul la statisticile de acoperire în DoctorPanel (pentru export PDF)
+        // inject access to coverage stats into DoctorPanel (for PDF export)
         DoctorPanel.GetCoverageStats = () => (_viewModel.BeforeStats, _viewModel.AfterStats);
 
-        // Hook InkCanvas stroke collection for undo/redo support
+        // hook into the InkCanvas stroke collection for undo/redo support
         Loaded += (_, _) =>
         {
             EditorCanvas.StrokeCollected += EditorCanvas_StrokeCollected;
@@ -320,7 +320,7 @@ public partial class MainWindow : Window
 
         if (_viewModel.FloorPlan != null)
         {
-            // Use device-independent size (accounts for DPI scaling)
+            // device-independent size (accounts for DPI scaling)
             double dpiScaleX = _viewModel.FloorPlan.DpiX / 96.0;
             double dpiScaleY = _viewModel.FloorPlan.DpiY / 96.0;
             double w = _viewModel.FloorPlan.PixelWidth  / dpiScaleX;
@@ -371,7 +371,7 @@ public partial class MainWindow : Window
                 StrokeDashArray = new DoubleCollection { 4, 2 }
             };
 
-            // MAGIC FIX: Punem linia de calibrare deasupra tuturor straturilor!
+            // the calibration line is placed above all layers
             Panel.SetZIndex(_calibrationLine, 100);
 
             MapContent.Children.Add(_calibrationLine);
@@ -607,7 +607,7 @@ public partial class MainWindow : Window
 
     private void RedrawSurveyPoints(IReadOnlyList<SurveyPoint> surveyPoints)
     {
-        SurveyPointsCanvas.Children.Clear(); // curăță orice rămășiță
+        SurveyPointsCanvas.Children.Clear(); // clear any leftovers
         foreach (var point in surveyPoints)
         {
             int strongestSignal = point.DetectedNetworks.Count > 0
@@ -654,7 +654,7 @@ public partial class MainWindow : Window
 
     #endregion
 
-    #region Map Elements (Obstacole)
+    #region Map Elements (Obstacles)
 
     private void RedrawMapElements(IReadOnlyList<MapElement> elements)
     {
@@ -729,12 +729,12 @@ public partial class MainWindow : Window
         DrawingOverlayUI.Visibility = Visibility.Collapsed;
         GridBackground.Visibility = Visibility.Collapsed;
 
-        // Resetăm starea de desenare a canvas-ului
+        // reset the canvas drawing state
         EditorCanvas.EditingMode = InkCanvasEditingMode.None;
         EditorCanvas.IsHitTestVisible = false;
         _isLineToolActive = false;
 
-        // Mutăm interfața înapoi pe modul "Navigare / Mutare"
+        // switch the interface back to Navigate / Move mode
         ToolPointer.IsChecked = true;
 
         _viewModel.StatusMessage = "Desenare anulată.";
@@ -745,12 +745,12 @@ public partial class MainWindow : Window
         DrawingOverlayUI.Visibility = Visibility.Collapsed;
         GridBackground.Visibility = Visibility.Collapsed;
 
-        // Oprim desenul și eliberăm mouse-ul
+        // stop drawing and release the mouse
         EditorCanvas.EditingMode = InkCanvasEditingMode.None;
         EditorCanvas.IsHitTestVisible = false;
         _isLineToolActive = false;
 
-        // Comutăm înapoi pe Navigare pentru siguranță
+        // switch back to Navigate for safety
         ToolPointer.IsChecked = true;
 
         var dpiInfo = VisualTreeHelper.GetDpi(MapContent);
@@ -818,7 +818,7 @@ public partial class MainWindow : Window
     private void SetBasicMode_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.IsExpertMode = false;
-        _viewModel.IsWizardMinimized = false; // redeschide wizardul la revenirea în Basic
+        _viewModel.IsWizardMinimized = false; // reopens the wizard when returning to Basic
         _viewModel.StatusMessage = "Mod Basic activat.";
     }
 
@@ -875,7 +875,7 @@ public partial class MainWindow : Window
 
         _isLineToolActive = false;
         EditorCanvas.EditingMode = InkCanvasEditingMode.None;
-        EditorCanvas.IsHitTestVisible = false; // Eliberăm harta
+        EditorCanvas.IsHitTestVisible = false; // release the map
 
         MapContent.Cursor = Cursors.Cross;
         _viewModel.StatusMessage = "Click stanga pe harta pentru a plasa un punct de masurare.";
@@ -888,7 +888,7 @@ public partial class MainWindow : Window
 
         _isLineToolActive = false;
         EditorCanvas.EditingMode = InkCanvasEditingMode.None;
-        EditorCanvas.IsHitTestVisible = false; // Eliberăm harta
+        EditorCanvas.IsHitTestVisible = false; // release the map
 
         MapContent.Cursor = Cursors.Hand;
         _viewModel.StatusMessage = "Mod navigare: trage harta cu click stanga.";
@@ -923,10 +923,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Mod normal → plasam stamp pe harta
+        // normal mode: place stamp on the map
         _isLineToolActive = false;
         EditorCanvas.EditingMode = InkCanvasEditingMode.None;
-        EditorCanvas.IsHitTestVisible = false; // Eliberăm harta
+        EditorCanvas.IsHitTestVisible = false; // release the map
 
         MapContent.Cursor = Cursors.Cross;
         string desc = tag switch
@@ -1039,7 +1039,7 @@ public partial class MainWindow : Window
 
             if (dialog.ShowDialog() != true) return;
 
-            // Randăm MapContent (plan + heatmap + stampile) la dimensiunea reală
+            // render MapContent (floor plan, heatmap, stamps) at actual size
             var target = MapContent;
             var renderBitmap = new RenderTargetBitmap(
                 (int)target.ActualWidth, (int)target.ActualHeight,
@@ -1255,7 +1255,7 @@ public partial class MainWindow : Window
     #region Stamp Objects (Router, Fridge, etc.)
 
     /// <summary>
-    /// Mapare ElementType → (icon kind, culoare) pentru PackIconMaterial.
+    /// maps ElementType to (icon kind, color) for PackIconMaterial.
     /// </summary>
     private static (PackIconMaterialKind kind, Color color) GetIconForType(ElementType type) => type switch
     {
@@ -1290,8 +1290,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Creează elementul vizual cu PackIconMaterial pentru un tip de obstacol.
-    /// Înlocuiește complet vechea versiune cu emoji TextBlock.
+    /// creates the visual element with PackIconMaterial for an obstacle type.
     /// </summary>
     private Border CreateIconElement(ElementType type)
     {
@@ -1374,7 +1373,7 @@ public partial class MainWindow : Window
     #endregion
 
     /// <summary>
-    /// Desenează indicatorul vizual (cerc verde + icon router) pentru poziția optimă.
+    /// draws the visual indicator (green circle, router icon) for the optimal position.
     /// </summary>
     private void DrawOptimalRouterIndicator(Point pos)
     {
@@ -1406,7 +1405,6 @@ public partial class MainWindow : Window
             Tag = "OptimalRouter"
         };
 
-        // ✅ Icon vectorial in loc de emoji
         var routerIcon = new PackIconMaterial
         {
             Kind = PackIconMaterialKind.RouterWireless,
@@ -1441,7 +1439,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Desenează indicatorul routerului optim și pe canvas-ul din modul Optimizat.
+    /// draws the optimal router indicator on the Optimized mode canvas as well.
     /// </summary>
     private void DrawOptimalRouterOnOptimizedCanvas(Point pos)
     {
@@ -1498,7 +1496,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Colectează schița curentă (ISF + PNG DPI-aware) și apelează SaveProjectWithSketch.
+    /// collects the current sketch (ISF and DPI-aware PNG) and calls SaveProjectWithSketch.
     /// </summary>
     private void CollectSketchAndSave()
     {
@@ -1509,7 +1507,7 @@ public partial class MainWindow : Window
         {
             strokes = EditorCanvas.Strokes;
 
-            // ✅ DPI-aware render
+            // DPI-aware render
             var dpiInfo = VisualTreeHelper.GetDpi(MapContent);
             int w = (int)(MapContent.ActualWidth * dpiInfo.DpiScaleX);
             int h = (int)(MapContent.ActualHeight * dpiInfo.DpiScaleY);
@@ -1541,18 +1539,18 @@ public partial class MainWindow : Window
 
 
     /// <summary>
-    /// Actualizează lățimea barelor de distribuție semnal din panoul Analiză AI.
-    /// Barele sunt Border-uri cu x:Name — lățimea se calculează proporțional cu containerul.
+    /// updates the width of the signal distribution bars in the AI Analysis panel.
+    /// the bars are Border elements with x:Name; width is calculated proportionally to the container.
     /// </summary>
     private void UpdateStatsBarWidths(WifiSignalOptimizer.Models.CoverageStats stats)
     {
-        // Așteptăm layout-ul să fie gata, apoi setăm lățimile
+        // wait for layout to be ready, then set the widths
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
         {
             double maxW = BarExcellent.ActualWidth > 0
                 ? (BarExcellent.Parent as Border)?.ActualWidth ?? 90
                 : 90;
-            // Dacă containerul nu e vizibil încă, nu facem nimic
+            // if the container is not visible yet, do nothing
             if (maxW <= 0) return;
 
             BarExcellent.Width   = maxW * stats.ExcellentPercent / 100.0;
@@ -1579,4 +1577,4 @@ public partial class MainWindow : Window
     }
 }
 
-// HeatmapPoint mutat în Models/HeatmapPoint.cs
+// HeatmapPoint moved to Models/HeatmapPoint.cs

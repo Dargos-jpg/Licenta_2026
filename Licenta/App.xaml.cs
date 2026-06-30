@@ -5,7 +5,7 @@ using System.Windows.Data;
 namespace WifiSignalOptimizer;
 
 /// <summary>
-/// Interaction logic for App.xaml
+/// interaction logic for App.xaml
 /// </summary>
 public partial class App : Application
 {

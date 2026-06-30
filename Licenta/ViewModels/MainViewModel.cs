@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -15,7 +15,7 @@ using WifiSignalOptimizer.Services;
 namespace WifiSignalOptimizer.ViewModels;
 
 /// <summary>
-/// Modul de vizualizare al zonei centrale.
+/// view mode for the central area.
 /// </summary>
 public enum CentralViewMode { Normal, Optimized, Doctor }
 
@@ -23,8 +23,8 @@ public enum WizardStep
 {
     ScanWifi        = 0,
     LoadPlan        = 1,
-    Calibrate       = 2,   // drag 2 puncte → câți metri (Ekahau-style)
-    DrawWalls       = 3,   // opțional: desenează pereți/obstacole
+    Calibrate       = 2,   // drag 2 points, how many meters (Ekahau-style)
+    DrawWalls       = 3,   // optional: draw walls/obstacles
     MarkLocations   = 4,
     GenerateHeatmap = 5,
     OptimizeRouter  = 6,
@@ -32,7 +32,7 @@ public enum WizardStep
 }
 
 /// <summary>
-/// Main ViewModel for the application following strict MVVM pattern
+/// main ViewModel for the application following strict MVVM pattern
 /// </summary>
 public sealed partial class MainViewModel : ObservableObject
 {
@@ -43,14 +43,14 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly List<SurveyPoint> _surveyPoints = [];
     private readonly List<MapElement> _mapElements = [];
 
-    // === CONTINUOUS SURVEY — Signal Tracking ===
+    // continuous survey: signal tracking
     private readonly Dictionary<string, Queue<int>> _signalHistory = new();
     private readonly Dictionary<string, double> _signalBaselines = new();
     private const int SignalHistorySize      = 10;
     private const int BaselineSampleCount    = 3;
     private const int SignalDropAlertThresholdDbm = 10;
 
-    // === UNDO / REDO ===
+    // undo / redo
     private readonly Stack<(Action Undo, Action Redo)> _undoStack = new();
     private readonly Stack<(Action Undo, Action Redo)> _redoStack = new();
 
@@ -75,11 +75,11 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isAutoScanning;
 
-    // Trend semnal rețea selectată (ex: "↑ +3 dBm", "↓ -8 dBm", "— stabil")
+    // signal trend for the selected network (e.g. "up +3 dBm", "down -8 dBm", "stable")
     [ObservableProperty]
     private string _selectedNetworkTrend = "";
 
-    // Alertă drop semnal față de baseline
+    // alert for signal drop relative to baseline
     [ObservableProperty]
     private bool _isSignalAlert = false;
 
@@ -98,15 +98,15 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCalibrated = false;
 
-    // Modul de afișare: false = Basic (utilizatori de rând), true = Expert (tehnicieni)
+    // display mode: false = Basic (regular users), true = Expert (technicians)
     [ObservableProperty]
     private bool _isExpertMode = false;
 
-    // Wizardul poate fi închis cu X fără a schimba modul Basic/Expert
+    // the wizard can be closed with X without changing Basic/Expert mode
     [ObservableProperty]
     private bool _isWizardMinimized = false;
 
-    // === WIZARD (Basic Mode) ===
+    // wizard (Basic Mode)
     [ObservableProperty]
     private WizardStep _currentWizardStep = WizardStep.ScanWifi;
 
@@ -164,12 +164,12 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(WizardDescription));
         OnPropertyChanged(nameof(WizardActionText));
 
-        // La intrarea în DrawWalls, activăm automat unealta Linie Dreaptă
+        // when entering DrawWalls, automatically activate the Straight Line tool
         if (value == WizardStep.DrawWalls)
             WeakReferenceMessenger.Default.Send(new ActivateDrawLineForCalibrationMessage());
     }
 
-    // IsGridCanvasActive = true când userul a ales "Plan Grilă Nou" fără să încarce o imagine
+    // IsGridCanvasActive = true when the user chose "New Grid Plan" without loading an image
     [ObservableProperty]
     private bool _isGridCanvasActive = false;
 
@@ -184,7 +184,7 @@ public sealed partial class MainViewModel : ObservableObject
             WizardStep.ScanWifi        when VisibleNetworks.Count > 0 => WizardStep.LoadPlan,
             WizardStep.LoadPlan        when hasCanvas                  => WizardStep.Calibrate,
             WizardStep.Calibrate       when IsCalibrated               => WizardStep.DrawWalls,
-            // DrawWalls: fără condiție automată — userul apasă manual Continuă
+            // DrawWalls: no automatic condition, the user manually presses Continue
             WizardStep.MarkLocations   when SurveyPointCount >= 2      => WizardStep.GenerateHeatmap,
             WizardStep.GenerateHeatmap when HeatmapOverlay != null     => WizardStep.OptimizeRouter,
             WizardStep.OptimizeRouter  when IsOptimizationDone         => WizardStep.Done,
@@ -194,7 +194,7 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(WizardActionText));
     }
 
-    // Auto-avansare când calibrarea e completă (Calibrate → DrawWalls)
+    // auto-advance once calibration is complete (Calibrate to DrawWalls)
     partial void OnIsCalibratedChanged(bool value)
     {
         if (value) AdvanceWizardIfNeeded();
@@ -232,11 +232,11 @@ public sealed partial class MainViewModel : ObservableObject
                 CurrentWizardStep = WizardStep.DrawWalls;
                 break;
             case WizardStep.Calibrate:
-                // Pornește modul drag-calibrare (Ekahau-style)
+                // starts drag-calibration mode (Ekahau-style)
                 WeakReferenceMessenger.Default.Send(new StartCalibrationFromWizardMessage());
                 break;
             case WizardStep.DrawWalls:
-                // "Continuă →" — avansează la MarkLocations
+                // "Continue" advances to MarkLocations
                 CurrentWizardStep = WizardStep.MarkLocations;
                 break;
             case WizardStep.MarkLocations when SurveyPointCount >= 2:
@@ -249,22 +249,22 @@ public sealed partial class MainViewModel : ObservableObject
                 CalculateOptimalRouter();
                 break;
             case WizardStep.Done:
-                IsExpertMode = true; // Let them explore on their own
+                IsExpertMode = true; // let them explore on their own
                 break;
         }
     }
 
-    // === THRESHOLD OVERLAY — zone moarte ===
+    // threshold overlay: dead zones
     [ObservableProperty]
     private bool _isDeadZoneOverlayActive = false;
 
     [ObservableProperty]
-    private double _deadZoneThreshold = -75.0;  // dBm — prag implicit
+    private double _deadZoneThreshold = -75.0;  // dBm, default threshold
 
     [ObservableProperty]
     private ImageSource? _deadZoneOverlay;
 
-    // === VIEW SWITCHING ===
+    // view switching
     [ObservableProperty]
     private CentralViewMode _centralViewMode = CentralViewMode.Normal;
 
@@ -280,7 +280,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isAnalyzingDoctor = false;
 
-    // === STATISTICI COMPARATIVE ÎNAINTE/DUPĂ OPTIMIZARE ===
+    // comparative statistics before/after optimization
     [ObservableProperty]
     private CoverageStats? _beforeStats;
 
@@ -289,7 +289,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool HasCompareStats => BeforeStats != null && AfterStats != null;
 
-    // ── Deltas pentru comparație ───────────────────────────────────────
+    // deltas for comparison
     public double CoverageDelta      => HasCompareStats ? AfterStats!.CoveragePercent  - BeforeStats!.CoveragePercent  : 0;
     public double SignalDelta        => HasCompareStats ? AfterStats!.AverageSignal    - BeforeStats!.AverageSignal    : 0;
     public double ExcellentDelta     => HasCompareStats ? AfterStats!.ExcellentPercent - BeforeStats!.ExcellentPercent : 0;
@@ -297,7 +297,7 @@ public sealed partial class MainViewModel : ObservableObject
     public double ThroughputDelta    => HasCompareStats ? AfterStats!.EstimatedThroughputMbps - BeforeStats!.EstimatedThroughputMbps : 0;
     public double UniformityDelta    => HasCompareStats ? AfterStats!.UniformityScore  - BeforeStats!.UniformityScore  : 0;
 
-    // ── Scor AI și progres bar (0–1) pentru After ─────────────────────
+    // AI score and progress bar (0-1) for After
     public double AfterScoreNorm     => AfterStats != null ? AfterStats.OverallScore / 100.0 : 0;
     public double BeforeScoreNorm    => BeforeStats != null ? BeforeStats.OverallScore / 100.0 : 0;
 
@@ -357,12 +357,12 @@ public sealed partial class MainViewModel : ObservableObject
 
     public string AutoScanButtonText => IsAutoScanning ? "⏸ Stop Auto-Scan" : "▶ Start Auto-Scan";
 
-    // === UNDO / REDO ===
+    // undo / redo
     public bool CanUndo => _undoStack.Count > 0;
     public bool CanRedo => _redoStack.Count > 0;
 
     /// <summary>
-    /// Pushed by ViewModel internals and by MainWindow (for InkCanvas strokes).
+    /// pushed by ViewModel internals and by MainWindow (for InkCanvas strokes).
     /// </summary>
     public void PushUndoAction(Action undo, Action redo)
     {
@@ -402,7 +402,7 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    // Interval auto-scan configurabil (secunde)
+    // configurable auto-scan interval (seconds)
     [ObservableProperty]
     private int _autoScanIntervalSeconds = 5;
 
@@ -441,7 +441,7 @@ public sealed partial class MainViewModel : ObservableObject
 
             if (bitmap != null)
             {
-                // Reset complet înainte de noul plan (curăță tot statul anterior)
+                // full reset before the new plan (clears all previous state)
                 _surveyPoints.Clear();
                 _mapElements.Clear();
                 _undoStack.Clear();
@@ -465,7 +465,7 @@ public sealed partial class MainViewModel : ObservableObject
                 FloorPlan = bitmap;
                 StatusMessage = $"Plan încărcat: {Path.GetFileName(dialog.FileName)}";
 
-                // Curăță canvas-urile vizuale (survey points, stampile, pereți desenați)
+                // clear the visual canvases (survey points, stamps, drawn walls)
                 WeakReferenceMessenger.Default.Send(new ClearSurveyPointsMessage());
                 WeakReferenceMessenger.Default.Send(new ResetMapCanvasMessage());
             }
@@ -484,7 +484,7 @@ public sealed partial class MainViewModel : ObservableObject
             IsScanning = true;
             StatusMessage = "Se scanează rețelele WiFi...";
 
-            // Salvăm rețeaua curentă ca să nu dispară selecția la refresh
+            // save the current network so the selection doesn't disappear on refresh
             string? savedSsid = SelectedNetwork?.SSID;
 
             var networks = await _wifiScanner.ScanNetworksAsync();
@@ -496,11 +496,11 @@ public sealed partial class MainViewModel : ObservableObject
             foreach (var network in networks)
                 VisibleNetworks.Add(network);
 
-            // Re-selectăm rețeaua după refresh
+            // re-select the network after refresh
             if (!string.IsNullOrEmpty(savedSsid))
                 SelectedNetwork = VisibleNetworks.FirstOrDefault(n => n.SSID == savedSsid);
 
-            // Actualizăm istoricul semnal pentru Continuous Survey
+            // update the signal history for Continuous Survey
             UpdateSignalHistory(networks);
 
             StatusMessage = $"Scanare completă. {networks.Count} rețele găsite.";
@@ -541,7 +541,7 @@ public sealed partial class MainViewModel : ObservableObject
             _ = ScanAsync(CancellationToken.None);
     }
 
-    // ─── Signal History pentru Continuous Survey ──────────────────────────────
+    // signal history for Continuous Survey
     private void UpdateSignalHistory(IReadOnlyList<WifiNetwork> networks)
     {
         foreach (var net in networks)
@@ -554,7 +554,7 @@ public sealed partial class MainViewModel : ObservableObject
             if (queue.Count >= SignalHistorySize) queue.Dequeue();
             queue.Enqueue(net.SignalStrength);
 
-            // Calculăm baseline după primele BaselineSampleCount citiri
+            // compute the baseline after the first BaselineSampleCount readings
             if (!_signalBaselines.ContainsKey(net.SSID) && queue.Count >= BaselineSampleCount)
                 _signalBaselines[net.SSID] = queue.Take(BaselineSampleCount).Average();
         }
@@ -588,10 +588,10 @@ public sealed partial class MainViewModel : ObservableObject
         SelectedNetworkTrend = delta > 1  ? $"↑ +{delta} dBm" :
                                delta < -1 ? $"↓ {delta} dBm"  : "— stabil";
 
-        // Alertă dacă semnalul a scăzut față de baseline
+        // alert if the signal dropped relative to the baseline
         if (_signalBaselines.TryGetValue(ssid, out double baseline))
         {
-            double drop = baseline - current; // pozitiv = scădere
+            double drop = baseline - current; // positive = drop
             if (drop >= SignalDropAlertThresholdDbm)
             {
                 IsSignalAlert = true;
@@ -632,7 +632,7 @@ public sealed partial class MainViewModel : ObservableObject
         StatusMessage = $"Punctul {pointNumber} înregistrat la ({point.X:F0}, {point.Y:F0}) " +
                        $"- {VisibleNetworks.Count} rețele detectate";
 
-        // Push undo action
+        // push undo action
         PushUndoAction(
             undo: () =>
             {
@@ -735,7 +735,7 @@ public sealed partial class MainViewModel : ObservableObject
         StatusMessage = $"{elementName} adăugat la ({element.X:F0}, {element.Y:F0}) " +
                        $"- Penalizare semnal: {element.SignalPenalty} dBm";
 
-        // Push undo action
+        // push undo action
         PushUndoAction(
             undo: () =>
             {
@@ -786,17 +786,17 @@ public sealed partial class MainViewModel : ObservableObject
             new RequestHeatmapGenerationMessage(width, height, scara, SelectedNetwork.SSID));
     }
 
-    // Butonul "Salvare" din panou trimite un mesaj către MainWindow
-    // care colectează schița curentă și apelează SaveProjectWithSketch
+    // the "Save" button in the panel sends a message to MainWindow
+    // which collects the current sketch and calls SaveProjectWithSketch
     [RelayCommand]
     private void SaveProject()
     {
-        // Cerem MainWindow să colecteze schița și să declanșeze salvarea completă
+        // ask MainWindow to collect the sketch and trigger the full save
         WeakReferenceMessenger.Default.Send(new RequestSaveWithSketchMessage());
     }
 
     /// <summary>
-    /// Salvare completă: apelat din MainWindow când există schiță de inclus.
+    /// full save: called from MainWindow when there is a sketch to include.
     /// </summary>
     public void SaveProjectWithSketch(
         System.Windows.Ink.StrokeCollection? sketchStrokes,
@@ -838,7 +838,7 @@ public sealed partial class MainViewModel : ObservableObject
 
             if (projectData != null)
             {
-                // ── PASUL 1: Reset complet stare vizuală și date vechi ─────────
+                // step 1: full reset of visual state and old data
                 _surveyPoints.Clear();
                 _mapElements.Clear();
                 _undoStack.Clear();
@@ -855,9 +855,9 @@ public sealed partial class MainViewModel : ObservableObject
                 AfterStats        = null;
                 CentralViewMode   = CentralViewMode.Normal;
 
-                // ── PASUL 2: Încarcă planul din JSON ÎNAINTE de orice redesenare
-                //    (astfel ResetMapCanvasMessage va folosi dimensiunile corecte)
-                FloorPlan = null;   // curăță planul vechi din binding
+                // step 2: load the plan from JSON before any redraw
+                //    (so ResetMapCanvasMessage uses the correct dimensions)
+                FloorPlan = null;   // clear the old plan from the binding
                 if (!string.IsNullOrEmpty(projectData.SketchPngBase64))
                 {
                     var restoredPlan = await _mapService.LoadFromBase64Async(projectData.SketchPngBase64);
@@ -865,10 +865,10 @@ public sealed partial class MainViewModel : ObservableObject
                         FloorPlan = restoredPlan;
                 }
 
-                // ── PASUL 3: Curăță complet canvas-urile vizuale (cu planul nou setat)
+                // step 3: fully clear the visual canvases (with the new plan set)
                 WeakReferenceMessenger.Default.Send(new ResetMapCanvasMessage());
 
-                // ── PASUL 4: Populăm datele din JSON ──────────────────────────
+                // step 4: populate data from JSON
                 foreach (var point in projectData.SurveyPoints)
                     _surveyPoints.Add(point);
 
@@ -879,7 +879,7 @@ public sealed partial class MainViewModel : ObservableObject
                 IsCalibrated     = projectData.IsCalibrated;
                 SurveyPointCount = _surveyPoints.Count;
 
-                // Reconstruim VisibleNetworks din datele salvate în puncte
+                // rebuild VisibleNetworks from data saved in the points
                 var networksFromSave = _surveyPoints
                     .SelectMany(p => p.DetectedNetworks)
                     .GroupBy(n => n.SSID)
@@ -900,7 +900,7 @@ public sealed partial class MainViewModel : ObservableObject
                 if (VisibleNetworks.Count > 0)
                     SelectedNetwork = VisibleNetworks[0];
 
-                // ── PASUL 5: Redesenăm vizual pe canvas-ul curat ──────────────
+                // step 5: redraw visually on the clean canvas
                 WeakReferenceMessenger.Default.Send(new RedrawSurveyPointsMessage(_surveyPoints));
                 WeakReferenceMessenger.Default.Send(new RedrawMapElementsMessage(_mapElements));
 
@@ -916,7 +916,7 @@ public sealed partial class MainViewModel : ObservableObject
 
                 StatusMessage = $"Proiect încărcat! ({_surveyPoints.Count} puncte{reteleInfo}{calibrareInfo})";
 
-                // ── PASUL 6: Generăm heatmap dacă avem suficiente date ─────────
+                // step 6: generate the heatmap if there is enough data
                 if (FloorPlan != null && _surveyPoints.Count >= 2 && SelectedNetwork != null)
                     GenerateHeatmap();
             }
@@ -934,7 +934,7 @@ public sealed partial class MainViewModel : ObservableObject
     public IReadOnlyList<SurveyPoint> GetSurveyPoints() => _surveyPoints.AsReadOnly();
 
     [RelayCommand]
-    private void CalculateOptimalRouter() // ✅ Nu mai e Async
+    private void CalculateOptimalRouter() // no longer async
     {
         if (FloorPlan == null)
         {
@@ -956,7 +956,7 @@ public sealed partial class MainViewModel : ObservableObject
         double width = FloorPlan.PixelWidth;
         double height = FloorPlan.PixelHeight;
 
-        // Trimitem canalul și SSID-ul rețelei selectate (bandă + calibrare TX power)
+        // send the channel and SSID of the selected network (band + TX power calibration)
         int    channel = SelectedNetwork?.Channel ?? 0;
         string? ssid   = SelectedNetwork?.SSID;
         WeakReferenceMessenger.Default.Send(new RequestOptimalRouterMessage(width, height, scara, channel, ssid));
@@ -976,14 +976,14 @@ public sealed partial class MainViewModel : ObservableObject
         DeadZoneOverlay  = null;
         StatusMessage    = "Toate punctele și obiectele au fost șterse.";
 
-        // Curăță și vizual: strokes, stamps, survey points
+        // also clear visually: strokes, stamps, survey points
         WeakReferenceMessenger.Default.Send(new ResetMapCanvasMessage());
         WeakReferenceMessenger.Default.Send(new ClearSurveyPointsMessage());
     }
 
     /// <summary>
-    /// Reset complet — ca și când aplicația tocmai a pornit.
-    /// Curăță tot: plan, puncte, obstacole, heatmap, schiță.
+    /// full reset, as if the application had just started.
+    /// clears everything: plan, points, obstacles, heatmap, sketch.
     /// </summary>
     [RelayCommand]
     private void ResetAll()
@@ -1058,20 +1058,20 @@ public sealed class RequestSaveWithSketchMessage
 }
 
 /// <summary>
-/// Cere MainWindow să reseteze canvas-urile vizuale (pereți, stampile, transforms).
+/// asks MainWindow to reset the visual canvases (walls, stamps, transforms).
 /// </summary>
 public sealed class ResetMapCanvasMessage
 {
 }
 
-// ✅ NOU: Mesaj pentru calcul poziție optimă router
+// message for calculating the optimal router position
 public sealed class RequestOptimalRouterMessage
 {
     public double Width   { get; }
     public double Height  { get; }
     public double  Scale      { get; }
-    public int     Channel    { get; }   // canal WiFi → determină banda (2.4/5/6 GHz)
-    public string? TargetSSID { get; }   // SSID-ul rețelei selectate, pt calibrare TX power
+    public int     Channel    { get; }   // WiFi channel, determines the band (2.4/5/6 GHz)
+    public string? TargetSSID { get; }   // SSID of the selected network, for TX power calibration
 
     public RequestOptimalRouterMessage(double w, double h, double scale, int channel, string? ssid)
     {

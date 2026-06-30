@@ -3,14 +3,14 @@
 namespace WifiSignalOptimizer.Models;
 
 /// <summary>
-/// Raport complet de sănătate WiFi cu analiză AI avansată
+/// complete WiFi health report with advanced AI analysis
 /// </summary>
 public class NetworkHealthReport
 {
     public string TargetSSID { get; set; } = string.Empty;
     public int CurrentChannel { get; set; }
     public int BestChannel { get; set; }
-    public int ChannelSwitchBenefit { get; set; } // Procentaj îmbunătățire
+    public int ChannelSwitchBenefit { get; set; } // improvement percentage
 
     public int CurrentSignalStrength { get; set; }
     public int CurrentSignalQuality { get; set; }
@@ -27,7 +27,7 @@ public class NetworkHealthReport
 
     public string TheoreticalMaxSpeed { get; set; } = "300 Mbps";
     public string EstimatedRealSpeed { get; set; } = "150 Mbps";
-    public int SpeedEfficiency { get; set; } // Procentaj
+    public int SpeedEfficiency { get; set; } // percentage
 
     public List<ChannelAnalysis> ChannelDetails { get; set; } = [];
     public List<NeighborInfo> ProblematicNeighbors { get; set; } = [];
@@ -36,7 +36,7 @@ public class NetworkHealthReport
 }
 
 /// <summary>
-/// Informații despre un vecin problematic
+/// information about a problematic neighbor
 /// </summary>
 public class NeighborInfo
 {
@@ -47,7 +47,7 @@ public class NeighborInfo
 }
 
 /// <summary>
-/// Problemă detectată în rețea
+/// issue detected in the network
 /// </summary>
 public class NetworkIssue
 {

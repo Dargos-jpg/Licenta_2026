@@ -23,10 +23,10 @@ namespace WifiSignalOptimizer.Views
 
         private void PopulateUI()
         {
-            // ── Timestamp ──
+            // timestamp
             TimestampText.Text = DateTime.Now.ToString("dd MMM yyyy · HH:mm");
 
-            // ── Scor + culoare ──
+            // score and color
             var (scoreColor, scoreHex) = GetScoreColor(_report.OverallHealthScore);
             ScoreText.Text = _report.OverallHealthScore.ToString("F0");
             ScoreTextBrush.Color = scoreColor;
@@ -35,34 +35,34 @@ namespace WifiSignalOptimizer.Views
             ClassBrush.Color = scoreColor;
             ClassificationText.Text = _report.HealthClassification.ToUpper();
 
-            // ── SSID + bandă ──
+            // SSID and band
             SsidText.Text = string.IsNullOrEmpty(_report.TargetSSID) ? "Rețea necunoscută" : _report.TargetSSID;
             BandText.Text = _report.FrequencyBand;
             BandCharText.Text = _report.BandCharacteristics;
 
-            // ── Semnal ──
+            // signal
             SignalText.Text = _report.CurrentSignalStrength.ToString();
             SignalBrush.Color = _report.CurrentSignalStrength >= -60 ? scoreColor :
                                 _report.CurrentSignalStrength >= -75 ? Color.FromRgb(249, 115, 22) :
                                                                         Color.FromRgb(239, 68, 68);
 
-            // ── Viteză ──
+            // speed
             SpeedText.Text = _report.EstimatedRealSpeed;
             SpeedMaxText.Text = _report.TheoreticalMaxSpeed + " max";
 
-            // ── Canal ──
+            // channel
             ChannelText.Text = _report.CurrentChannel.ToString();
             ChannelOptimalText.Text = _report.CurrentChannel == _report.BestChannel
                 ? "✓ optim" : $"→ CH{_report.BestChannel} recomandat";
 
-            // ── Congestionare ──
+            // congestion
             CongestionText.Text = _report.CongestionIndex.ToString();
 
-            // ── Health bar ──
+            // health bar
             HealthPctText.Text = _report.OverallHealthScore.ToString("F0") + "%";
             HealthBarGrad.Color = scoreColor;
 
-            // Animăm bara după ce layout e calculat
+            // animate the bar once layout is computed
             InterferenceChart.Loaded += (_, _) =>
             {
                 double barWidth = InterferenceChart.ActualWidth;
@@ -71,32 +71,32 @@ namespace WifiSignalOptimizer.Views
             };
             HealthBar.Width = 0;
 
-            // ── Canale K-Means ──
+            // K-Means channels
             var channelsToShow = _report.ChannelDetails
                 .Where(c => c.InterferenceScore > 0 || c.Channel == _report.CurrentChannel || c.Channel == _report.BestChannel)
                 .OrderBy(c => c.Channel)
                 .ToList();
             ChannelsList.ItemsSource = channelsToShow;
 
-            // ── Vecini ──
+            // neighbors
             NeighborCountText.Text = $"{_report.TotalNeighbors} rețele în zonă";
             NeighborsList.ItemsSource = _report.ProblematicNeighbors.Take(6);
 
-            // ── Recomandări ──
+            // recommendations
             var allInsights = new List<string>();
             allInsights.AddRange(_report.Recommendations);
             InsightsList.ItemsSource = allInsights;
 
-            // ── Probleme ──
+            // issues
             IssueCountText.Text = $"{_report.DetectedIssues.Count} probleme găsite";
             IssuesList.ItemsSource = _report.DetectedIssues;
 
-            // ── Footer ──
+            // footer
             EfficiencyText.Text = $"Eficiență rețea: {_report.SpeedEfficiency}%";
             NeighborSummaryText.Text = $"{_report.TotalNeighbors} vecini în zonă";
             CanalOptimText.Text = $"Canal optim: CH{_report.BestChannel}";
 
-            // ── Grafic interferențe ──
+            // interference chart
             InterferenceChart.SizeChanged += (_, _) => DrawInterferenceChart();
             DrawInterferenceChart();
         }
@@ -118,9 +118,9 @@ namespace WifiSignalOptimizer.Views
 
             double maxScore = Math.Max(1, channels.Max(c => c.InterferenceScore));
             double barWidth = Math.Max(4, (w - 40) / channels.Count - 6);
-            double chartH = h - 30; // rezervăm jos pentru etichete
+            double chartH = h - 30; // reserve space at the bottom for labels
 
-            // Grid lines orizontale (4 linii)
+            // horizontal grid lines (4 lines)
             for (int i = 1; i <= 4; i++)
             {
                 double lineY = chartH - (chartH * i / 4.0);
@@ -148,7 +148,7 @@ namespace WifiSignalOptimizer.Views
                 bool isCurrent = ch.Channel == _report.CurrentChannel;
                 bool isOptimal = ch.Channel == _report.BestChannel;
 
-                // Glow sub bară
+                // glow below the bar
                 if (ratio > 0.1)
                 {
                     var glow = new Rectangle
@@ -168,7 +168,7 @@ namespace WifiSignalOptimizer.Views
                     InterferenceChart.Children.Add(glow);
                 }
 
-                // Bara principală
+                // main bar
                 Color barColor = isCurrent ? Color.FromRgb(59, 130, 246) :
                                  isOptimal ? Color.FromRgb(34, 197, 94) :
                                               GetInterferenceColor(ratio);
@@ -186,7 +186,7 @@ namespace WifiSignalOptimizer.Views
                 Canvas.SetTop(rect, y);
                 InterferenceChart.Children.Add(rect);
 
-                // Etichetă canal
+                // channel label
                 var label = new TextBlock
                 {
                     Text = ch.Channel.ToString(),
@@ -204,7 +204,7 @@ namespace WifiSignalOptimizer.Views
                 Canvas.SetTop(label, chartH + 4);
                 InterferenceChart.Children.Add(label);
 
-                // Valoare deasupra barei (dacă e curent sau optim)
+                // value above the bar (if current or optimal)
                 if (isCurrent || isOptimal)
                 {
                     var valLabel = new TextBlock
@@ -221,7 +221,7 @@ namespace WifiSignalOptimizer.Views
                 }
             }
 
-            // Bara health la final
+            // health bar at the end
             double barWidthMax = InterferenceChart.ActualWidth;
             if (barWidthMax > 10)
                 HealthBar.Width = barWidthMax * (_report.OverallHealthScore / 100.0);

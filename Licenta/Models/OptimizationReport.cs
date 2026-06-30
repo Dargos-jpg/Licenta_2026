@@ -1,35 +1,35 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Microsoft.ML.Data;
 
 namespace WifiSignalOptimizer.Models;
 
 /// <summary>
-/// Per-channel analysis with interference metrics
+/// per-channel analysis with interference metrics
 /// </summary>
 public class ChannelAnalysis
 {
     /// <summary>
-    /// Channel number (1-13 for 2.4GHz)
+    /// channel number (1-13 for 2.4GHz)
     /// </summary>
     public int Channel { get; set; }
 
     /// <summary>
-    /// Mathematical interference score (lower is better)
+    /// mathematical interference score (lower is better)
     /// </summary>
     public double InterferenceScore { get; set; }
 
     /// <summary>
-    /// Number of networks on the exact same channel (co-channel interference)
+    /// number of networks on the exact same channel (co-channel interference)
     /// </summary>
     public int CoChannelNeighbors { get; set; }
 
     /// <summary>
-    /// Number of networks on adjacent channels (adjacent channel interference)
+    /// number of networks on adjacent channels (adjacent channel interference)
     /// </summary>
     public int AdjacentNeighbors { get; set; }
 
     /// <summary>
-    /// AI/ML classification status: "🟢 Optim", "🟡 Aglomerat", "🔴 Critic"
+    /// AI/ML classification status: "Optim", "Aglomerat", "Critic"
     /// </summary>
     public string Status { get; set; } = "Necunoscut";
 }
@@ -40,12 +40,12 @@ public class ChannelAnalysis
 public class OptimizationReport
 {
     /// <summary>
-    /// Target network SSID being analyzed
+    /// target network SSID being analyzed
     /// </summary>
     public string TargetSSID { get; set; } = string.Empty;
 
     /// <summary>
-    /// Current channel the network is operating on
+    /// current channel the network is operating on
     /// </summary>
     public int CurrentChannel { get; set; }
 
@@ -55,43 +55,43 @@ public class OptimizationReport
     public int BestChannel { get; set; }
 
     /// <summary>
-    /// Overall network health score (0-100, higher is better)
+    /// overall network health score (0-100, higher is better)
     /// </summary>
     public double OverallHealthScore { get; set; }
 
     /// <summary>
-    /// Detailed analysis for each channel (1-13)
+    /// detailed analysis for each channel (1-13)
     /// </summary>
     public List<ChannelAnalysis> ChannelDetails { get; set; } = [];
 
     /// <summary>
-    /// Human-readable actionable recommendations
+    /// human-readable actionable recommendations
     /// </summary>
     public List<string> ActionableInsights { get; set; } = [];
 }
 
 /// <summary>
-/// ML.NET training data: Channel features for K-Means clustering
+/// ML.NET training data: channel features for K-Means clustering
 /// </summary>
 public class ChannelData
 {
     /// <summary>
-    /// Channel number (1-13)
+    /// channel number (1-13)
     /// </summary>
     public float Channel { get; set; }
 
     /// <summary>
-    /// Interference score (feature for ML)
+    /// interference score (feature for ML)
     /// </summary>
     public float InterferenceScore { get; set; }
 
     /// <summary>
-    /// Co-channel neighbor count (feature for ML)
+    /// co-channel neighbor count (feature for ML)
     /// </summary>
     public float CoChannelNeighbors { get; set; }
 
     /// <summary>
-    /// Adjacent channel neighbor count (feature for ML)
+    /// adjacent channel neighbor count (feature for ML)
     /// </summary>
     public float AdjacentNeighbors { get; set; }
 }
@@ -102,13 +102,13 @@ public class ChannelData
 public class ClusterPrediction
 {
     /// <summary>
-    /// Predicted cluster ID (0, 1, or 2 for 3-cluster K-Means)
+    /// predicted cluster ID (0, 1, or 2 for 3-cluster K-Means)
     /// </summary>
     [ColumnName("PredictedLabel")]
     public uint PredictedClusterId { get; set; }
 
     /// <summary>
-    /// Distance to each cluster centroid
+    /// distance to each cluster centroid
     /// </summary>
     [ColumnName("Score")]
     public float[]? Distances { get; set; }

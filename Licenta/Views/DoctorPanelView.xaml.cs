@@ -31,7 +31,7 @@ public partial class DoctorPanelView : UserControl
             panel.PopulateUI(report);
     }
 
-    // Injectat din MainWindow pentru accesul la statisticile de acoperire
+    // injected from MainWindow for access to coverage stats
     public Func<(WifiSignalOptimizer.Models.CoverageStats? Before, WifiSignalOptimizer.Models.CoverageStats? After)>? GetCoverageStats { get; set; }
 
     public DoctorPanelView()
@@ -108,12 +108,12 @@ public partial class DoctorPanelView : UserControl
 
         DrawInterferenceChart(report);
 
-        // Spectrul e vizibil doar pentru 2.4 GHz
+        // spectrum is only visible for 2.4 GHz
         bool is24 = report.FrequencyBand.Contains("2.4") || report.CurrentChannel <= 14;
         SpectrumContainer.Visibility = is24 ? Visibility.Visible : Visibility.Collapsed;
         if (is24) DrawChannelOverlap(report);
 
-        // Animăm bara de sănătate după layout
+        // animate the health bar after layout
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
         {
             double barWidth = InterferenceChart.ActualWidth;
@@ -248,10 +248,8 @@ public partial class DoctorPanelView : UserControl
         return (Color.FromRgb(239, 68, 68), "#EF4444");
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 2.4 GHz Channel Spectrum Overlap Visualizer
-    // Channels 1-13, each 20 MHz wide, center freq = 2412 + (ch-1)*5 MHz
-    // ─────────────────────────────────────────────────────────────
+    // 2.4 GHz channel spectrum overlap visualizer
+    // channels 1-13, each 20 MHz wide, center frequency = 2412 + (ch-1)*5 MHz
     private void DrawChannelOverlap(NetworkHealthReport report)
     {
         ChannelSpectrumCanvas.Children.Clear();
@@ -260,19 +258,19 @@ public partial class DoctorPanelView : UserControl
         double h = ChannelSpectrumCanvas.ActualHeight;
         if (w < 20 || h < 10) return;
 
-        // Only relevant for 2.4 GHz band
+        // only relevant for the 2.4 GHz band
         bool is24GHz = report.FrequencyBand.Contains("2.4") ||
                        report.CurrentChannel <= 14;
         if (!is24GHz) return;
 
-        // Frequency range: 2401 – 2485 MHz (covers all 13 channels + bandwidth edges)
+        // frequency range: 2401-2485 MHz (covers all 13 channels and bandwidth edges)
         const double freqMin = 2401.0;
         const double freqMax = 2485.0;
         const double freqRange = freqMax - freqMin;
 
         double xForFreq(double mhz) => (mhz - freqMin) / freqRange * w;
 
-        // Collect active channels from report
+        // collect the active channels from the report
         var activeChannels = report.ChannelDetails
             .Where(c => c.Channel >= 1 && c.Channel <= 13 && c.InterferenceScore > 0)
             .Select(c => c.Channel)
@@ -281,7 +279,7 @@ public partial class DoctorPanelView : UserControl
 
         int currentCh = report.CurrentChannel;
 
-        // Draw each channel's 20 MHz band as a semi-transparent rounded rectangle
+        // draw each channel's 20 MHz band as a semi-transparent rounded rectangle
         for (int ch = 1; ch <= 13; ch++)
         {
             double centerMhz = 2412.0 + (ch - 1) * 5.0;
@@ -296,7 +294,7 @@ public partial class DoctorPanelView : UserControl
             bool isNeighbor  = activeChannels.Contains(ch) && !isCurrent;
             bool isNonOverlap = ch == 1 || ch == 6 || ch == 11;
 
-            // Background fill per channel type
+            // background fill per channel type
             Color fillColor;
             double opacity;
             if (isCurrent)       { fillColor = Color.FromRgb(34, 197, 94);  opacity = 0.55; }
@@ -314,10 +312,10 @@ public partial class DoctorPanelView : UserControl
             Canvas.SetTop(rect, 0);
             ChannelSpectrumCanvas.Children.Add(rect);
 
-            // Red tint where this channel overlaps with the current channel
+            // red tint where this channel overlaps with the current channel
             if (!isCurrent && activeChannels.Contains(ch))
             {
-                // Compute overlap with current channel
+                // compute the overlap with the current channel
                 double curCenter = 2412.0 + (currentCh - 1) * 5.0;
                 double curStart  = curCenter - 10.0;
                 double curEnd    = curCenter + 10.0;
@@ -341,7 +339,7 @@ public partial class DoctorPanelView : UserControl
                 }
             }
 
-            // Channel number label — only for active or non-overlapping channels
+            // channel number label, only for active or non-overlapping channels
             if (isCurrent || isNeighbor || isNonOverlap)
             {
                 double centerX = (x1 + x2) / 2.0;
@@ -364,7 +362,7 @@ public partial class DoctorPanelView : UserControl
             }
         }
 
-        // Frequency axis line at bottom of bars
+        // frequency axis line at the bottom of the bars
         var axis = new Line
         {
             X1 = 0, Y1 = h - 14, X2 = w, Y2 = h - 14,
@@ -373,7 +371,7 @@ public partial class DoctorPanelView : UserControl
         };
         ChannelSpectrumCanvas.Children.Add(axis);
 
-        // Mark non-overlapping recommended channels with a small dot above
+        // mark non-overlapping recommended channels with a small dot above
         foreach (int ch in new[] { 1, 6, 11 })
         {
             double centerMhz = 2412.0 + (ch - 1) * 5.0;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -10,65 +10,65 @@ using WifiSignalOptimizer.Models;
 namespace WifiSignalOptimizer.Services;
 
 /// <summary>
-/// Serviciu ultra-avansat de optimizare a poziției routerului.
-/// Folosește Log-Distance Path Loss + Raycasting prin pereți desenați + obstacole.
-/// Parametrii fizici se adaptează automat la banda de frecvență (2.4 / 5 / 6 GHz).
+/// router position optimization service.
+/// uses Log-Distance Path Loss + raycasting through drawn walls and obstacles.
+/// physical parameters automatically adapt to the frequency band (2.4 / 5 / 6 GHz).
 /// </summary>
 public class RouterOptimizationService
 {
-    // === PARAMETRI FIZICI WiFi — adaptabili per bandă ===
+    // WiFi physical parameters, adapted per band
     private double _frequencyGHz    = 2.4;
     private double _txPowerDbm      = 20.0;
     private double _pathLossExp     = 3.0;   // 2.4 GHz indoor
-    private double _wallPenaltyDbm  = 10.0;  // 2.4 GHz: penetrare bună
+    private double _wallPenaltyDbm  = 10.0;  // 2.4 GHz: good penetration
     private string _bandLabel       = "2.4 GHz";
 
     private const double REFERENCE_DISTANCE_M = 1.0;
     private const double SHADOWING_STD_DEV    = 8.0;
 
-    // === PARAMETRI ALGORITM ===
+    // algorithm parameters
     private const int    GRID_STEP             = 10;
     private const double EDGE_PENALTY_DISTANCE = 50.0;
     private const double CORNER_PENALTY_RADIUS = 80.0;
 
-    // === PONDERI MULTI-CRITERIA ===
+    // multi-criteria weights
     private const double WEIGHT_MIN_SIGNAL  = 0.5;
     private const double WEIGHT_UNIFORMITY  = 0.3;
     private const double WEIGHT_POSITION    = 0.2;
 
-    // Indică dacă simularea trebuie să folosească WiFi 7 MLO (Multi-Link Operation)
-    // În modul MLO, se simulează acoperirea combinată 2.4 + 5 + 6 GHz simultan.
+    // indicates whether the simulation should use WiFi 7 MLO (Multi-Link Operation)
+    // in MLO mode, the combined 2.4 + 5 + 6 GHz coverage is simulated simultaneously.
     private bool _isMlo = false;
 
-    // Raza maximă realistă de acoperire a routerului (în metri).
-    // Dincolo de această distanță semnalul devine neglijabil — se aplică cutoff hard.
-    // Valori calibrate pe specificațiile tipice 802.11 indoor:
-    //   2.4 GHz → 28 m, 5 GHz → 18 m, 6 GHz → 10 m, WiFi 7 MLO → 30 m
+    // realistic maximum coverage range of the router (in meters).
+    // beyond this distance the signal becomes negligible, a hard cutoff is applied.
+    // values calibrated against typical indoor 802.11 specifications:
+    //   2.4 GHz -> 28 m, 5 GHz -> 18 m, 6 GHz -> 10 m, WiFi 7 MLO -> 30 m
     private double _maxRangeM = 28.0;
 
     /// <summary>
-    /// Configurează parametrii fizici pe baza canalului WiFi.
-    /// Parametrii de atenuare (wall penalty, path loss exponent) sunt calibrați pe
-    /// măsurători reale IEEE 802.11 pentru pereți interiori rezidenţiali (gips-carton/cărămidă),
-    /// NU beton armat (valorile vechi de 15–20 dBm/perete erau pentru beton).
+    /// configures the physical parameters based on the WiFi channel.
+    /// attenuation parameters (wall penalty, path loss exponent) are calibrated against
+    /// real IEEE 802.11 measurements for residential interior walls (drywall/brick),
+    /// not reinforced concrete (the old values of 15-20 dBm/wall were for concrete).
     ///
-    /// Generații WiFi suportate:
-    ///   WiFi 5 (802.11ac)  → 5 GHz, canale 32–177
-    ///   WiFi 6 (802.11ax)  → 2.4 / 5 GHz, canale 1–177
-    ///   WiFi 6E (802.11ax) → 6 GHz, canale 183+
-    ///   WiFi 7 (802.11be)  → MLO pe 2.4 + 5 + 6 GHz simultan (activat via ConfigureWifi7)
-    ///   WiFi 8 (802.11bn)  → draft, ~2028, nesuportat încă
+    /// supported WiFi generations:
+    ///   WiFi 5 (802.11ac)  -> 5 GHz, channels 32-177
+    ///   WiFi 6 (802.11ax)  -> 2.4 / 5 GHz, channels 1-177
+    ///   WiFi 6E (802.11ax) -> 6 GHz, channels 183+
+    ///   WiFi 7 (802.11be)  -> MLO across 2.4 + 5 + 6 GHz simultaneously (enabled via ConfigureWifi7)
+    ///   WiFi 8 (802.11bn)  -> draft, ~2028, not yet supported
     /// </summary>
     public string Configure(int channel)
     {
-        _isMlo = false; // reset MLO implicit
+        _isMlo = false; // reset MLO by default
 
         if (channel >= 32 && channel <= 177)
         {
-            // 5 GHz — WiFi 5/6/7
-            // Path loss exponent 3.3 = rezidential tipic (IEEE 802.11-2020 tabel B.3)
-            // Wall penalty 8 dBm = perete interior gips-carton/cărămidă @ 5 GHz
-            // (beton armat ar fi 15–20 dBm, dar apartamentele au pereți interiori ușori)
+            // 5 GHz - WiFi 5/6/7
+            // path loss exponent 3.3 = typical residential (IEEE 802.11-2020 table B.3)
+            // wall penalty 8 dBm = interior drywall/brick wall @ 5 GHz
+            // (reinforced concrete would be 15-20 dBm, but apartments have light interior walls)
             _frequencyGHz   = 5.0;
             _txPowerDbm     = 23.0;
             _pathLossExp    = 3.3;
@@ -78,8 +78,8 @@ public class RouterOptimizationService
         }
         else if (channel > 177)
         {
-            // 6 GHz — WiFi 6E/7
-            // Path loss exponent 3.7, wall penalty 12 dBm (undă scurtă, mai mult blocată)
+            // 6 GHz - WiFi 6E/7
+            // path loss exponent 3.7, wall penalty 12 dBm (short wave, more easily blocked)
             _frequencyGHz   = 6.0;
             _txPowerDbm     = 23.0;
             _pathLossExp    = 3.7;
@@ -89,8 +89,8 @@ public class RouterOptimizationService
         }
         else
         {
-            // 2.4 GHz — WiFi 4/5/6/7
-            // Path loss exponent 2.8, wall penalty 5 dBm (penetrare bună la frecvență joasă)
+            // 2.4 GHz - WiFi 4/5/6/7
+            // path loss exponent 2.8, wall penalty 5 dBm (good penetration at low frequency)
             _frequencyGHz   = 2.4;
             _txPowerDbm     = 20.0;
             _pathLossExp    = 2.8;
@@ -102,16 +102,16 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// Activează modul WiFi 7 MLO (Multi-Link Operation).
-    /// IEEE 802.11be: routerul transmite simultan pe 2.4 + 5 + 6 GHz;
-    /// clientul primește semnalul cel mai bun din oricare bandă în fiecare punct.
-    /// GenerateOptimizedHeatmap va calcula max(signal_2.4, signal_5, signal_6) per pixel.
+    /// enables WiFi 7 MLO (Multi-Link Operation) mode.
+    /// IEEE 802.11be: the router transmits simultaneously on 2.4 + 5 + 6 GHz;
+    /// the client receives the best signal from any band at each point.
+    /// GenerateOptimizedHeatmap will compute max(signal_2.4, signal_5, signal_6) per pixel.
     /// </summary>
     public void ConfigureWifi7Mlo()
     {
-        // Setăm parametrii 5 GHz ca bandă primară (cea mai folosită de WiFi 7)
+        // set the 5 GHz parameters as the primary band (most used by WiFi 7)
         _frequencyGHz   = 5.0;
-        _txPowerDbm     = 26.0; // WiFi 7 permite până la 26 dBm (4×4 MIMO, 320 MHz)
+        _txPowerDbm     = 26.0; // WiFi 7 allows up to 26 dBm (4x4 MIMO, 320 MHz)
         _pathLossExp    = 3.3;
         _wallPenaltyDbm = 8.0;
         _isMlo          = true;
@@ -123,9 +123,9 @@ public class RouterOptimizationService
     public bool   IsMlo     => _isMlo;
 
     /// <summary>
-    /// Calibrează puterea de emisie (TX power) a routerului pe baza măsurătorilor reale.
-    /// Inversează modelul Log-Distance Path Loss: TX = SignalMasurat + PathLoss + Shadowing.
-    /// Astfel, o rețea cu -54 dBm va simula mai bine decât una cu -68 dBm, indiferent de bandă.
+    /// calibrates the router's transmit power (TX power) based on real measurements.
+    /// inverts the Log-Distance Path Loss model: TX = MeasuredSignal + PathLoss + Shadowing.
+    /// this way, a network at -54 dBm will simulate better than one at -68 dBm, regardless of band.
     /// </summary>
     public double CalibrateTxPower(
         Point routerPos,
@@ -134,7 +134,7 @@ public class RouterOptimizationService
         double pixelsPerMeter)
     {
         if (string.IsNullOrEmpty(targetSSID) || surveys == null || surveys.Count == 0)
-            return _txPowerDbm; // rămâne valoarea default
+            return _txPowerDbm; // keep the default value
 
         double wavelength = 3e8 / (_frequencyGHz * 1e9);
         double pl_d0      = 20 * Math.Log10(4 * Math.PI * REFERENCE_DISTANCE_M / wavelength);
@@ -144,7 +144,7 @@ public class RouterOptimizationService
 
         foreach (var sp in surveys)
         {
-            // Căutăm semnalul măsurat pentru rețeaua selectată în acest punct
+            // look up the measured signal for the selected network at this point
             int? measured = sp.DetectedNetworks
                 .FirstOrDefault(n => n.SSID == targetSSID)
                 ?.SignalStrength;
@@ -152,12 +152,12 @@ public class RouterOptimizationService
             if (measured == null) continue;
 
             double distPx = Distance(routerPos, new Point(sp.X, sp.Y));
-            if (distPx < 5.0) continue; // prea aproape, nesigur
+            if (distPx < 5.0) continue; // too close, unreliable
 
             double distM = Math.Max(distPx / pixelsPerMeter, REFERENCE_DISTANCE_M);
             double pathLoss = pl_d0 + 10 * _pathLossExp * Math.Log10(distM / REFERENCE_DISTANCE_M);
 
-            // TX estimat din inversa modelului: TX = S_masutat + PL + shadowing
+            // estimated TX from the inverted model: TX = S_measured + PL + shadowing
             double estimatedTx = measured.Value + pathLoss + (SHADOWING_STD_DEV / 2.0);
             txSum   += estimatedTx;
             txCount++;
@@ -166,7 +166,7 @@ public class RouterOptimizationService
         if (txCount > 0)
         {
             double calibrated = txSum / txCount;
-            // Clamp în intervalul fizic realist pentru routere WiFi: 10–33 dBm
+            // clamp to a realistic physical range for WiFi routers: 10-33 dBm
             _txPowerDbm = Math.Clamp(calibrated, 10.0, 33.0);
         }
 
@@ -174,10 +174,10 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// Găsește poziția optimă pentru router.
-    /// Dacă se furnizează targetSSID, include și consistența cu măsurătorile reale în scor —
-    /// candidatul care "explică" cel mai bine semnalele măsurate va câștiga.
-    /// Cu mai multe puncte măsurate dense (ex: JCn4 cu 18 pct), poziția va fi mai precisă.
+    /// finds the optimal position for the router.
+    /// if targetSSID is provided, the score also factors in consistency with real measurements,
+    /// the candidate that best "explains" the measured signals wins.
+    /// with more dense measured points (e.g. JCn4 with 18 points), the position will be more precise.
     /// </summary>
     public Point FindOptimalPosition(
         List<MapElement> obstacles,
@@ -193,8 +193,8 @@ public class RouterOptimizationService
 
         var wallSegments = ExtractWallSegments(drawnWalls);
 
-        // Extragem măsurătorile reale pentru rețeaua țintă (dacă există SSID)
-        // Fiecare element: (poziție punct, semnal real măsurat în dBm)
+        // extract the real measurements for the target network (if an SSID is given)
+        // each element: (point position, real measured signal in dBm)
         var realMeasurements = string.IsNullOrEmpty(targetSSID)
             ? null
             : surveyPoints
@@ -217,7 +217,7 @@ public class RouterOptimizationService
 
         foreach (var candidate in candidates)
         {
-            // ── 1. Semnal minim și uniformitate (din modelul fizic) ──
+            // 1. minimum signal and uniformity (from the physical model)
             double minSignal   = double.MaxValue;
             double totalSignal = 0;
             double totalWeight = 0;
@@ -241,9 +241,9 @@ public class RouterOptimizationService
             double positionScore   = CalculatePositionScore(candidate, surveyPoints, mapWidth, mapHeight);
             double normalizedMin   = Math.Clamp((minSignal + 90.0) / 60.0, 0.0, 1.0);
 
-            // ── 2. Consistență cu măsurătorile reale (dacă avem SSID) ──
-            // Candidatul din care modelul fizic prezice cel mai bine semnalele reale câștigă.
-            // Rețelele cu mai multe puncte dense (JCn4 cu 18 pct) vor genera o poziție mai precisă.
+            // 2. consistency with real measurements (if an SSID is available)
+            // the candidate whose physical model best predicts the real signals wins.
+            // networks with more dense points (JCn4 with 18 points) yield a more precise position.
             double measureFitScore = 100.0;
             if (hasMeasurements)
             {
@@ -252,16 +252,16 @@ public class RouterOptimizationService
                 {
                     double simulated = CalculateSignalAtPoint(
                         candidate, pos, obstacles, wallSegments, pixelsPerMeter);
-                    // Rezidual absolut: cât de bine explică candidatul semnalul real
+                    // absolute residual: how well the candidate explains the real signal
                     totalResidual += Math.Abs(measured - simulated);
                 }
                 double avgResidual = totalResidual / realMeasurements!.Count;
-                // Rezidual mic → scor mare (candidat bun)
+                // small residual -> high score (good candidate)
                 measureFitScore = 100.0 / (1.0 + avgResidual / 12.0);
             }
 
-            // ── 3. Scor compus ──
-            // Cu măsurători reale: mai multă greutate pe consistența cu datele reale
+            // 3. composite score
+            // with real measurements: more weight on consistency with the real data
             double wSignal  = hasMeasurements ? 0.30 : 0.50;
             double wUniform = hasMeasurements ? 0.25 : 0.35;
             double wPos     = 0.15;
@@ -284,7 +284,7 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// Calculează semnalul cu Log-Distance Path Loss + Raycasting complet.
+    /// computes the signal using full Log-Distance Path Loss + raycasting.
     /// </summary>
     private double CalculateSignalAtPoint(
         Point routerPos,
@@ -300,25 +300,25 @@ public class RouterOptimizationService
         if (distMeters < REFERENCE_DISTANCE_M)
             distMeters = REFERENCE_DISTANCE_M;
 
-        // 1. Free Space Path Loss (depinde de frecvența benzii)
+        // 1. free space path loss (depends on the band's frequency)
         double wavelength = 3e8 / (_frequencyGHz * 1e9);
         double pl_d0 = 20 * Math.Log10(4 * Math.PI * REFERENCE_DISTANCE_M / wavelength);
 
-        // 2. Log-Distance Path Loss (exponentul depinde de bandă)
+        // 2. log-distance path loss (the exponent depends on the band)
         double pathLoss = pl_d0 + 10 * _pathLossExp * Math.Log10(distMeters / REFERENCE_DISTANCE_M);
 
-        // 3. Obstacole (stampile) + Ziduri desenate (raycasting complet)
+        // 3. obstacles (stamps) + drawn walls (full raycasting)
         double obstacleLoss = CalculateObstaclePenalty(routerPos, targetPos, obstacles);
         double wallLoss = CalculateWallPenalty(routerPos, targetPos, wallSegments);
 
-        // 4. Shadowing
+        // 4. shadowing
         double shadowingPenalty = SHADOWING_STD_DEV / 2;
 
         return _txPowerDbm - pathLoss - obstacleLoss - wallLoss - shadowingPenalty;
     }
 
     /// <summary>
-    /// ✅ NOU: Raycasting prin pereții desenați (identic cu HeatmapService).
+    /// raycasting through the drawn walls (identical to HeatmapService).
     /// </summary>
     private double CalculateWallPenalty(
         Point from,
@@ -344,7 +344,7 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// Raycasting prin obstacole (stampile: frigider, microunde, etc.).
+    /// raycasting through obstacles (stamps: fridge, microwave, etc.).
     /// </summary>
     private double CalculateObstaclePenalty(Point from, Point to, List<MapElement> obstacles)
     {
@@ -372,7 +372,7 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// Scor de poziționare (preferință pentru centru, evită margini/colțuri).
+    /// positioning score (prefers the center, avoids edges/corners).
     /// </summary>
     private double CalculatePositionScore(
         Point candidate,
@@ -392,15 +392,15 @@ public class RouterOptimizationService
         double radiusX = (maxX - minX) / 2;
         double radiusY = (maxY - minY) / 2;
 
-        // 1. Penalizare ușoară pentru distanța de la centrul zonei de măsurătoare
-        //    (redusă față de înainte — semnalul contează mai mult decât geometria)
+        // 1. light penalty for distance from the center of the surveyed area
+        //    (reduced compared to before, signal matters more than geometry)
         double distFromCenter    = Distance(candidate, new Point(centerX, centerY));
         double maxDistFromCenter = Math.Sqrt(radiusX * radiusX + radiusY * radiusY);
         double centerPenalty     = maxDistFromCenter > 0
-            ? (distFromCenter / maxDistFromCenter) * 15   // era 30
+            ? (distFromCenter / maxDistFromCenter) * 15   // was 30
             : 0;
 
-        // 2. Penalizare margini (redusă)
+        // 2. edge penalty (reduced)
         double distToLeft   = candidate.X - minX;
         double distToRight  = maxX - candidate.X;
         double distToTop    = candidate.Y - minY;
@@ -411,16 +411,16 @@ public class RouterOptimizationService
 
         double edgePenalty = 0;
         if (minDistToEdge < EDGE_PENALTY_DISTANCE)
-            edgePenalty = (1.0 - minDistToEdge / EDGE_PENALTY_DISTANCE) * 20; // era 40
+            edgePenalty = (1.0 - minDistToEdge / EDGE_PENALTY_DISTANCE) * 20; // was 40
 
-        // 3. Penalizare colțuri (redusă — semnalul din colțuri poate fi bun prin reflexii)
+        // 3. corner penalty (reduced, signal in corners can be good thanks to reflections)
         bool isNearCorner =
             (distToLeft  < CORNER_PENALTY_RADIUS && distToTop    < CORNER_PENALTY_RADIUS) ||
             (distToRight < CORNER_PENALTY_RADIUS && distToTop    < CORNER_PENALTY_RADIUS) ||
             (distToLeft  < CORNER_PENALTY_RADIUS && distToBottom < CORNER_PENALTY_RADIUS) ||
             (distToRight < CORNER_PENALTY_RADIUS && distToBottom < CORNER_PENALTY_RADIUS);
 
-        double cornerPenalty = isNearCorner ? 25 : 0; // era 50
+        double cornerPenalty = isNearCorner ? 25 : 0; // was 50
 
         return Math.Max(0, score - centerPenalty - edgePenalty - cornerPenalty);
     }
@@ -482,10 +482,10 @@ public class RouterOptimizationService
         return points;
     }
 
-    // === HELPER METHODS (Geometry) ===
+    // geometry helper methods
 
     /// <summary>
-    /// ✅ Intersecție linie-linie (identic cu HeatmapService).
+    /// line-line intersection (identical to HeatmapService).
     /// </summary>
     private bool LinesIntersect(
         double x1, double y1, double x2, double y2,
@@ -501,7 +501,7 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// ✅ Extrage segmentele de zid din InkCanvas (identic cu HeatmapService).
+    /// extracts wall segments from the InkCanvas (identical to HeatmapService).
     /// </summary>
     private List<(double X1, double Y1, double X2, double Y2)> ExtractWallSegments(
         StrokeCollection strokes)
@@ -547,10 +547,10 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// Generează direct un BitmapSource cu heatmap-ul de semnal simulat din poziția optimă.
-    /// Metodă directă O(W×H) — path loss + raycasting per pixel.
-    /// Dacă _isMlo = true (WiFi 7 MLO), calculează max(2.4 GHz, 5 GHz, 6 GHz) per pixel,
-    /// simulând faptul că clientul WiFi 7 alege automat banda cu cel mai bun semnal.
+    /// directly generates a BitmapSource with the simulated signal heatmap from the optimal position.
+    /// direct O(W x H) method: path loss + raycasting per pixel.
+    /// if _isMlo = true (WiFi 7 MLO), computes max(2.4 GHz, 5 GHz, 6 GHz) per pixel,
+    /// simulating the fact that a WiFi 7 client automatically picks the band with the best signal.
     /// </summary>
     public BitmapSource GenerateOptimizedHeatmap(
         Point routerPosition,
@@ -574,19 +574,19 @@ public class RouterOptimizationService
         {
             for (int x = 0; x < width; x += step)
             {
-                // ── Cutoff hard bazat pe distanță reală (pixeli → metri) ──
+                // hard cutoff based on the real distance (pixels to meters)
                 double distPx = Distance(routerPosition, new Point(x, y));
                 double distM  = distPx / ppm;
 
                 if (_maxRangeM > 0 && distM >= _maxRangeM)
-                    continue; // pixel complet transparent, fără calcul de semnal
+                    continue; // fully transparent pixel, no signal calculation
 
                 double signal;
 
                 if (_isMlo)
                 {
-                    // WiFi 7 MLO: clientul alege banda cu cel mai bun semnal per-cadru
-                    // Simulăm toate cele 3 benzi și luăm maximul
+                    // WiFi 7 MLO: the client picks the band with the best signal per frame
+                    // simulate all 3 bands and take the maximum
                     double s24 = CalcSignalForBand(routerPosition, new Point(x, y),
                         obstacles, wallSegments, ppm, 2.4, 2.8, 5.0, 20.0);
                     double s5  = CalcSignalForBand(routerPosition, new Point(x, y),
@@ -604,19 +604,19 @@ public class RouterOptimizationService
 
                 Color color = GetHeatmapColor(signal);
 
-                // ── Fade combinat distanță + semnal (quadratic pentru trecere naturală) ──
-                // distFade: începe la 60% din raza max, ajunge la 1.0 la limita razei
+                // combined distance + signal fade (quadratic for a natural transition)
+                // distFade: starts at 60% of the max range, reaches 1.0 at the range limit
                 double distFade = 0.0;
                 if (_maxRangeM > 0 && distM > _maxRangeM * 0.6)
                     distFade = Math.Min(1.0, (distM - _maxRangeM * 0.6) / (_maxRangeM * 0.4));
 
-                // signalFade: începe la -62 dBm (nu -80), dispare complet la -90 dBm
+                // signalFade: starts at -62 dBm (not -80), fully disappears at -90 dBm
                 double signalFade = signal < -62.0
                     ? Math.Min(1.0, (-62.0 - signal) / 28.0)
                     : 0.0;
 
                 double fade  = Math.Max(distFade, signalFade);
-                byte   alpha = (byte)(210 * (1.0 - fade * fade)); // quadratic = margine naturală
+                byte   alpha = (byte)(210 * (1.0 - fade * fade)); // quadratic = natural edge
 
                 for (int dy = 0; dy < step && y + dy < height; dy++)
                     for (int dx = 0; dx < step && x + dx < width; dx++)
@@ -637,10 +637,7 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// Paletă culori identică cu HeatmapService: Verde → Galben → Portocaliu → Roșu.
-    /// </summary>
-    /// <summary>
-    /// Calcul semnal pentru o bandă specificată explicit — folosit în modul MLO.
+    /// computes the signal for an explicitly specified band, used in MLO mode.
     /// </summary>
     private double CalcSignalForBand(
         Point routerPos, Point targetPos,
@@ -715,13 +712,11 @@ public class RouterOptimizationService
         return Distance(point, closest);
     }
 
-    // ══════════════════════════════════════════════════════════
-    // STATISTICI ACOPERIRE
-    // ══════════════════════════════════════════════════════════
+    // coverage statistics
 
     /// <summary>
-    /// Calculează statistici de acoperire pentru heatmap-ul OPTIMIZAT (model fizic).
-    /// Eșantionează o grilă de puncte și aplică modelul Log-Distance Path Loss.
+    /// computes coverage statistics for the optimized heatmap (physical model).
+    /// samples a grid of points and applies the Log-Distance Path Loss model.
     /// </summary>
     public CoverageStats CalculateOptimizedStats(
         Point routerPosition,
@@ -752,7 +747,7 @@ public class RouterOptimizationService
                         CalcSignalForBand(routerPosition, new Point(x, y), obstacles, wallSegments, ppm, 6.0, 3.7, 12.0, 26.0)))
                 : CalculateSignalAtPoint(routerPosition, new Point(x, y), obstacles, wallSegments, ppm);
 
-            // Count wall crossings for this point
+            // count wall crossings for this point
             double wallAtten = GetObstacleAttenuationStatic(routerPosition.X, routerPosition.Y, x, y, obstacles, wallSegments);
             double wallCount = wallAtten / Math.Max(1.0, _wallPenaltyDbm);
 
@@ -773,7 +768,7 @@ public class RouterOptimizationService
         double avg     = signalSum / total;
         double variance = signalSumSq / total - avg * avg;
         double stdDev  = Math.Sqrt(Math.Max(0, variance));
-        // Uniformity: 100% means 0 std dev (perfect), drops as variance increases
+        // uniformity: 100% means 0 std dev (perfect), drops as variance increases
         double uniformity = Math.Max(0, 100.0 - stdDev * 3.0);
 
         return new CoverageStats(
@@ -789,8 +784,8 @@ public class RouterOptimizationService
     }
 
     /// <summary>
-    /// Calculează statistici de acoperire pentru heatmap-ul REAL (IDW din survey points).
-    /// Folosit pentru comparația "înainte" de optimizare.
+    /// computes coverage statistics for the real heatmap (IDW from survey points).
+    /// used for the "before" comparison prior to optimization.
     /// </summary>
     public static CoverageStats CalculateRealStats(
         List<HeatmapPoint> points,
@@ -855,7 +850,7 @@ public class RouterOptimizationService
             DeadZonePercent:  dead      * 100.0 / total,
             AverageSignal:    avg,
             UniformityScore:  uniformity,
-            AvgWallCount:     0,   // real stats nu au pozitie fixa de router
+            AvgWallCount:     0,   // real stats have no fixed router position
             TotalSamples:     total);
     }
 

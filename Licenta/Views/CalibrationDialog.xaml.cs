@@ -3,7 +3,7 @@
 namespace WifiSignalOptimizer.Dialogs;
 
 /// <summary>
-/// Dialog for entering real-world distance for calibration
+/// dialog for entering real-world distance for calibration
 /// </summary>
 public partial class CalibrationDialog : Window
 {

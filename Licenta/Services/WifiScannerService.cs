@@ -5,8 +5,8 @@ using System.Net.NetworkInformation;
 namespace WifiSignalOptimizer.Services;
 
 /// <summary>
-/// WiFi scanner implementation using ManagedNativeWifi for real network scanning.
-/// Requires Windows with WiFi adapter.
+/// wifi scanner implementation using ManagedNativeWifi for real network scanning.
+/// requires Windows with a WiFi adapter.
 /// </summary>
 public sealed class WifiScannerService : IWifiScannerService
 {
@@ -17,7 +17,7 @@ public sealed class WifiScannerService : IWifiScannerService
     {
         _useRealScanning = useRealScanning;
 
-        // Check if WiFi adapter is available
+        // check if a WiFi adapter is available
         if (useRealScanning)
         {
             try
@@ -50,16 +50,16 @@ public sealed class WifiScannerService : IWifiScannerService
     }
 
     /// <summary>
-    /// Scans real WiFi networks using ManagedNativeWifi.
-    /// Triggers an active scan first, then reads BSS cache.
+    /// scans real WiFi networks using ManagedNativeWifi.
+    /// triggers an active scan first, then reads the BSS cache.
     /// </summary>
     private async Task<IReadOnlyList<WifiNetwork>> ScanRealNetworksAsync()
     {
         try
         {
-            // ── Pas 1 + 2: declanșăm scan activ și așteptăm finalizarea ────────
-            // ScanNetworksAsync trimite wlan_scan pe toate interfețele și
-            // blochează până când toate raportează un rezultat (max timeout).
+            // step 1+2: trigger an active scan and wait for completion
+            // ScanNetworksAsync sends wlan_scan on all interfaces and
+            // blocks until all of them report a result (up to the timeout).
             try
             {
                 await NativeWifi.ScanNetworksAsync(TimeSpan.FromSeconds(4));
@@ -67,10 +67,10 @@ public sealed class WifiScannerService : IWifiScannerService
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"ScanNetworksAsync failed: {ex.Message}");
-                // continuăm oricum — poate avem date în cache
+                // continue anyway, there may be cached data
             }
 
-            // ── Pas 3: citim lista BSS actualizată ────────────────────────────
+            // step 3: read the updated BSS list
             var networks = new List<WifiNetwork>();
 
             await Task.Run(() =>
@@ -98,9 +98,9 @@ public sealed class WifiScannerService : IWifiScannerService
                 }
             });
 
-            // Deduplicate: keep strongest signal per SSID+Band combination.
-            // Same SSID on 2.4 GHz and 5 GHz are kept as separate entries so
-            // Doctor WiFi can analyse each band independently.
+            // deduplicate: keep the strongest signal per SSID+band combination.
+            // the same SSID on 2.4 GHz and 5 GHz is kept as separate entries so
+            // Doctor WiFi can analyze each band independently.
             var deduped = networks
                 .GroupBy(n => $"{n.SSID}|{(n.Channel > 177 ? "6GHz" : n.Channel > 14 ? "5GHz" : "2.4GHz")}")
                 .Select(g => g.OrderByDescending(n => n.SignalStrength).First())
@@ -125,13 +125,13 @@ public sealed class WifiScannerService : IWifiScannerService
     }
 
     /// <summary>
-    /// Simulated WiFi scanner for development and testing (BACKUP).
+    /// simulated WiFi scanner for development and testing (fallback).
     /// </summary>
     private async Task<IReadOnlyList<WifiNetwork>> ScanSimulatedNetworksAsync()
     {
         var random = new Random();
 
-        // Simulate scan delay
+        // simulate scan delay
         await Task.Delay(random.Next(200, 800));
 
         var simulatedSSIDs = new[]
@@ -153,7 +153,7 @@ public sealed class WifiScannerService : IWifiScannerService
 
         for (int i = 0; i < networkCount; i++)
         {
-            // Generate realistic channel
+            // generate a realistic channel
             var is5GHz = random.Next(0, 2) == 0;
             int channel;
 
@@ -168,7 +168,7 @@ public sealed class WifiScannerService : IWifiScannerService
                 channel = channels24G[random.Next(channels24G.Length)];
             }
 
-            // Generate realistic BSSID
+            // generate a realistic BSSID
             var bssid = string.Join(":",
                 Enumerable.Range(0, 6)
                     .Select(_ => random.Next(0, 256).ToString("X2")));
@@ -194,7 +194,7 @@ public sealed class WifiScannerService : IWifiScannerService
         _lastScanResults.AsReadOnly();
 
     /// <summary>
-    /// Format BSSID (PhysicalAddress) to readable MAC address string
+    /// formats a BSSID (PhysicalAddress) as a readable MAC address string
     /// </summary>
     private static string FormatBssid(PhysicalAddress bssid)
     {
@@ -205,11 +205,11 @@ public sealed class WifiScannerService : IWifiScannerService
     }
 
     /// <summary>
-    /// Convert frequency (kHz) to channel number
+    /// converts a frequency (kHz) to a channel number
     /// </summary>
     private static int GetChannelFromFrequency(int frequencyKhz)
     {
-        // Convert kHz to MHz
+        // convert kHz to MHz
         int frequencyMhz = frequencyKhz / 1000;
 
         // 2.4 GHz band (channels 1-14)
@@ -232,7 +232,7 @@ public sealed class WifiScannerService : IWifiScannerService
             return (frequencyMhz - 5955) / 5 + 1;
         }
 
-        // Unknown frequency
+        // unknown frequency
         return 0;
     }
 }

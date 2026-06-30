@@ -3,8 +3,8 @@
 namespace WifiSignalOptimizer.Models;
 
 /// <summary>
-/// Represents a measurement point on the floor plan with WiFi data.
-/// Critical for AI-powered heat map generation and signal optimization.
+/// represents a measurement point on the floor plan with WiFi data.
+/// used for heatmap generation and signal optimization.
 /// </summary>
 public sealed class SurveyPoint
 {
@@ -19,22 +19,22 @@ public sealed class SurveyPoint
     public required double Y { get; init; }
 
     /// <summary>
-    /// Timestamp when this measurement was taken
+    /// timestamp when this measurement was taken
     /// </summary>
     public DateTime Timestamp { get; init; } = DateTime.UtcNow;
 
     /// <summary>
-    /// All WiFi networks detected at this location
+    /// all WiFi networks detected at this location
     /// </summary>
     public required List<WifiNetwork> DetectedNetworks { get; init; }
 
     /// <summary>
-    /// Optional user notes for this measurement point
+    /// optional user notes for this measurement point
     /// </summary>
     public string? Notes { get; init; }
 
     /// <summary>
-    /// Gets the strongest signal at this point
+    /// gets the strongest signal at this point
     /// </summary>
     public int? StrongestSignal =>
         DetectedNetworks.Count > 0
@@ -42,19 +42,16 @@ public sealed class SurveyPoint
             : null;
 
     /// <summary>
-    /// Gets the weakest signal at this point
+    /// gets the weakest signal at this point
     /// </summary>
     public int? WeakestSignal =>
         DetectedNetworks.Count > 0
             ? DetectedNetworks.Min(n => n.SignalStrength)
             : null;
 
-    // ---------------------------------------------------------
-    // MODIFICAREA PENTRU HEATMAP (Săptămâna 9)
-    // ---------------------------------------------------------
     /// <summary>
-    /// Proprietate "fațadă" necesară pentru HeatmapService.
-    /// Returnează semnalul maxim (Coverage Map) sau -100 dacă e gol.
+    /// facade property required by HeatmapService.
+    /// returns the strongest signal (coverage map) or -100 if empty.
     /// </summary>
     public int SignalStrength => StrongestSignal ?? -100;
 

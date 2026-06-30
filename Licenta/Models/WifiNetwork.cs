@@ -1,22 +1,22 @@
 ﻿namespace WifiSignalOptimizer.Models;
 
 /// <summary>
-/// Represents a WiFi network detected during scanning
+/// represents a WiFi network detected during scanning
 /// </summary>
 public sealed class WifiNetwork
 {
     /// <summary>
-    /// Service Set Identifier - Network name
+    /// service Set Identifier - network name
     /// </summary>
     public required string SSID { get; init; }
 
     /// <summary>
-    /// Basic Service Set Identifier - MAC address of the access point
+    /// basic Service Set Identifier - MAC address of the access point
     /// </summary>
     public required string BSSID { get; init; }
 
     /// <summary>
-    /// Signal strength in dBm (typically -30 to -90)
+    /// signal strength in dBm (typically -30 to -90)
     /// </summary>
     public required int SignalStrength { get; init; }
 
@@ -26,13 +26,13 @@ public sealed class WifiNetwork
     public required int Channel { get; init; }
 
     /// <summary>
-    /// Signal quality percentage for UI display
+    /// signal quality percentage for UI display
     /// </summary>
     public int SignalQuality => CalculateSignalQuality(SignalStrength);
 
     /// <summary>
-    /// SNR estimat din RSSI + noise floor tipic per bandă (IEEE 802.11-2020).
-    /// 2.4 GHz: noise floor ≈ -95 dBm · 5 GHz: noise floor ≈ -98 dBm
+    /// SNR estimated from RSSI + typical noise floor per band (IEEE 802.11-2020).
+    /// 2.4 GHz: noise floor ~ -95 dBm, 5 GHz: noise floor ~ -98 dBm
     /// </summary>
     public int EstimatedSnr => Math.Max(0, Channel > 14
         ? SignalStrength + 98   // 5 GHz
@@ -40,7 +40,7 @@ public sealed class WifiNetwork
 
     public string BandLabel  => Channel > 177 ? "6G" : Channel > 14 ? "5G" : "2.4G";
 
-    /// <summary>Ultimii 8 caractere din BSSID (ex: "DD:EE:FF") — suficient pentru a distinge AP-uri.</summary>
+    /// <summary>last 8 characters of the BSSID (e.g. "DD:EE:FF"), enough to distinguish APs.</summary>
     public string ShortBssid => BSSID?.Length >= 8 ? BSSID[^8..] : BSSID ?? "—";
 
     public string SnrQuality => EstimatedSnr switch
@@ -54,7 +54,7 @@ public sealed class WifiNetwork
 
     private static int CalculateSignalQuality(int dbm)
     {
-        // Convert dBm to percentage (0-100)
+        // convert dBm to percentage (0-100)
         // -30 dBm = 100%, -90 dBm = 0%
         return Math.Clamp((int)((dbm + 90) * 100.0 / 60.0), 0, 100);
     }

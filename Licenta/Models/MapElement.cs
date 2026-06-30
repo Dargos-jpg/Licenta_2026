@@ -6,9 +6,9 @@
         Fridge,
         Microwave,
         ConcreteWall,
-        BrickWall,   // ✅ NOU
-        WoodDoor,    // ✅ NOU
-        TV           // ✅ NOU
+        BrickWall,
+        WoodDoor,
+        TV
     }
 
     public class MapElement
@@ -18,7 +18,7 @@
         public double Y { get; set; }
 
         /// <summary>
-        /// Atenuarea semnalului WiFi cauzată de acest obstacol (în dBm).
+        /// the WiFi signal attenuation caused by this obstacle (in dBm).
         /// </summary>
         public int SignalPenalty
         {
@@ -26,13 +26,13 @@
             {
                 return Type switch
                 {
-                    ElementType.Router => 0,   // Sursa — nu atenuează
-                    ElementType.ConcreteWall => 12,  // Beton armat
-                    ElementType.BrickWall => 6,   // Cărămidă
-                    ElementType.WoodDoor => 3,   // Ușă lemn
-                    ElementType.Fridge => 15,  // Metal masiv
-                    ElementType.Microwave => 8,   // Interferențe + metal
-                    ElementType.TV => 5,   // Metal + electronice
+                    ElementType.Router => 0,   // source, does not attenuate
+                    ElementType.ConcreteWall => 12,  // reinforced concrete
+                    ElementType.BrickWall => 6,   // brick
+                    ElementType.WoodDoor => 3,   // wood door
+                    ElementType.Fridge => 15,  // dense metal
+                    ElementType.Microwave => 8,   // interference + metal
+                    ElementType.TV => 5,   // metal + electronics
                     _ => 0
                 };
             }

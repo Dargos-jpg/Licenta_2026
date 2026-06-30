@@ -5,8 +5,8 @@ using System.Windows.Data;
 namespace WifiSignalOptimizer.Converters
 {
     /// <summary>
-    /// Convertește un double în semnul său: -1 (negativ), 0 (zero), 1 (pozitiv).
-    /// Folosit pentru DataTrigger pe culoarea valorilor delta (roșu/verde).
+    /// converts a double to its sign: -1 (negative), 0 (zero), 1 (positive).
+    /// used for the DataTrigger on the color of delta values (red/green).
     /// </summary>
     public sealed class SignConverter : IValueConverter
     {

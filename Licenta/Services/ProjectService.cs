@@ -11,7 +11,7 @@ namespace WifiSignalOptimizer.Services
     public class ProjectService
     {
         /// <summary>
-        /// Salvează proiectul complet: puncte, obstacole, calibrare, schiță vectorială și PNG.
+        /// saves the complete project: points, obstacles, calibration, vector sketch and PNG.
         /// </summary>
         public void SaveProject(
             List<SurveyPoint> points,
@@ -31,7 +31,7 @@ namespace WifiSignalOptimizer.Services
 
             try
             {
-                // Serializăm schița vectorială ISF → Base64
+                // serialize the vector sketch ISF to Base64
                 string? isfBase64 = null;
                 if (sketchStrokes != null && sketchStrokes.Count > 0)
                 {
@@ -40,7 +40,7 @@ namespace WifiSignalOptimizer.Services
                     isfBase64 = Convert.ToBase64String(ms.ToArray());
                 }
 
-                // Serializăm PNG-ul schiței → Base64
+                // serialize the sketch PNG to Base64
                 string? pngBase64 = null;
                 if (sketchPng != null)
                 {
@@ -65,7 +65,7 @@ namespace WifiSignalOptimizer.Services
                 string jsonString = JsonSerializer.Serialize(projectData, options);
                 File.WriteAllText(saveDialog.FileName, jsonString);
 
-                // Mesaj detaliat cu ce s-a salvat
+                // detailed message with what was saved
                 var parts = new List<string> { $"{points.Count} puncte WiFi" };
                 if (mapElements.Count > 0) parts.Add($"{mapElements.Count} obstacole");
                 if (isfBase64 != null) parts.Add("schiță vectorială");
@@ -83,8 +83,8 @@ namespace WifiSignalOptimizer.Services
         }
 
         /// <summary>
-        /// Încarcă proiectul complet. Suportă și formatul vechi (compatibilitate).
-        /// Returnează ProjectData și opțional StrokeCollection reconstituită.
+        /// loads the complete project. also supports the old format (backward compatibility).
+        /// returns ProjectData and, optionally, a reconstructed StrokeCollection.
         /// </summary>
         public (ProjectData? data, StrokeCollection? strokes) LoadProject()
         {
@@ -99,12 +99,12 @@ namespace WifiSignalOptimizer.Services
             {
                 string jsonString = File.ReadAllText(openDialog.FileName);
 
-                // Încercăm formatul nou (ProjectData complet)
+                // try the new format (full ProjectData)
                 var projectData = JsonSerializer.Deserialize<ProjectData>(jsonString);
 
                 if (projectData != null)
                 {
-                    // Reconstituim StrokeCollection din ISF Base64
+                    // reconstruct the StrokeCollection from the ISF Base64
                     StrokeCollection? strokes = null;
                     if (!string.IsNullOrEmpty(projectData.SketchIsfBase64))
                     {
@@ -114,7 +114,7 @@ namespace WifiSignalOptimizer.Services
                             using var ms = new MemoryStream(isfBytes);
                             strokes = new StrokeCollection(ms);
                         }
-                        catch { /* ISF corupt - continuăm fără schiță */ }
+                        catch { /* corrupt ISF, continue without the sketch */ }
                     }
 
                     var parts = new List<string> { $"{projectData.SurveyPoints.Count} puncte WiFi" };
@@ -129,7 +129,7 @@ namespace WifiSignalOptimizer.Services
                     return (projectData, strokes);
                 }
 
-                // Fallback: fișier vechi cu doar List<SurveyPoint>
+                // fallback: old file with just a List<SurveyPoint>
                 var oldPoints = JsonSerializer.Deserialize<List<SurveyPoint>>(jsonString);
                 if (oldPoints != null && oldPoints.Count > 0)
                 {

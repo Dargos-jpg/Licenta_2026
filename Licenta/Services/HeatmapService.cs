@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows.Ink;
 using System.Windows.Input;
@@ -11,8 +11,8 @@ namespace WifiSignalOptimizer.Services
     public class HeatmapService
     {
         /// <summary>
-        /// Generează heatmap WiFi cu IDW + path loss + raycasting pe obstacole și pereți desenați.
-        /// Acceptă HeatmapPoint (record simplu X/Y/SignalStrength) filtrat per SSID.
+        /// generates a WiFi heatmap using IDW + path loss + raycasting against obstacles and drawn walls.
+        /// accepts HeatmapPoint (a simple X/Y/SignalStrength record) filtered per SSID.
         /// </summary>
         public BitmapSource GenerateHeatmap(
             List<HeatmapPoint> points,
@@ -27,7 +27,7 @@ namespace WifiSignalOptimizer.Services
             int stride = width * 4;
             byte[] pixels = new byte[height * stride];
 
-            // IDW power 3.0 — contururi mai clare, mai puțin efect de "balon"
+            // IDW power 3.0, clearer contours, less of a "balloon" effect
             const double idwPower = 3.0;
             var wallSegments = ExtractWallSegments(drawnWalls);
             double ppm = pixelsPerMeter > 0 ? pixelsPerMeter : 20.0;
@@ -46,12 +46,12 @@ namespace WifiSignalOptimizer.Services
 
                         double distMeters = distPixels / ppm;
 
-                        // 1. Raycasting pentru FIECARE punct (nu doar cel mai apropiat)
+                        // 1. raycasting for every point (not just the closest one)
                         double wallPenalty = GetObstacleAttenuation(
                             x, y, p.X, p.Y, obstacles, wallSegments);
 
-                        // 2. Free Space Path Loss agresiv: 2.5 dBm/metru
-                        //    Previne ca verdele să se extindă la infinit în afara casei
+                        // 2. aggressive Free Space Path Loss: 2.5 dBm/meter
+                        //    prevents green from extending indefinitely outside the house
                         double airLoss = distMeters * 2.5;
 
                         double effectiveSignal = p.SignalStrength - wallPenalty - airLoss;
@@ -65,7 +65,7 @@ namespace WifiSignalOptimizer.Services
 
                     Color color = GetColorFromSignal(estimatedSignal);
 
-                    // Fade-out lin la marginile rețelei
+                    // smooth fade-out at the edges of the network
                     byte alpha = 210;
                     if (estimatedSignal < -80)
                     {
@@ -91,13 +91,11 @@ namespace WifiSignalOptimizer.Services
             return bitmap;
         }
 
-        // ══════════════════════════════════════════════════
-        // DEAD ZONE OVERLAY
-        // ══════════════════════════════════════════════════
+        // dead zone overlay
 
         /// <summary>
-        /// Generează un overlay care marchează zonele cu semnal sub prag cu o mască roșie semi-transparentă.
-        /// Suprapus pe heatmap-ul normal, arată vizual "găurile" de acoperire.
+        /// generates an overlay that marks below-threshold signal areas with a semi-transparent red mask.
+        /// layered over the normal heatmap, it visually highlights coverage "holes".
         /// </summary>
         public BitmapSource GenerateDeadZoneOverlay(
             List<HeatmapPoint> points,
@@ -136,7 +134,7 @@ namespace WifiSignalOptimizer.Services
 
                 if (signal < thresholdDbm)
                 {
-                    // Intensitate corelată cu cât e sub prag: mai roșu = mai slab
+                    // intensity correlates with how far below the threshold the signal is: redder = weaker
                     double intensity = Math.Min(1.0, (thresholdDbm - signal) / 20.0);
                     byte alpha = (byte)(160 * intensity);
 
@@ -157,9 +155,7 @@ namespace WifiSignalOptimizer.Services
             return bitmap;
         }
 
-        // ══════════════════════════════════════════════════
-        // RAYCASTING
-        // ══════════════════════════════════════════════════
+        // raycasting
 
         private double GetObstacleAttenuation(
             double x1, double y1, double x2, double y2,
@@ -223,38 +219,36 @@ namespace WifiSignalOptimizer.Services
                    Math.Pow(cy - (y1 + t * dy), 2) <= r * r;
         }
 
-        // ══════════════════════════════════════════════════
-        // GRADIENT PRO: Verde smarald → Lime → Galben → Roșu
-        // ══════════════════════════════════════════════════
+        // color gradient: emerald green -> lime -> yellow -> red
 
         private Color GetColorFromSignal(double signal)
         {
-            // Paletă Wi-Fi Standard (Ekahau/NetSpot style)
-            // -40 (Verde) → -55 (Verde-Gălbui) → -70 (Galben) → -80 (Portocaliu) → -90 (Roșu)
+            // standard WiFi palette (Ekahau/NetSpot style)
+            // -40 (green) -> -55 (yellow-green) -> -70 (yellow) -> -80 (orange) -> -90 (red)
 
             if (signal >= -40) return Color.FromRgb(0, 200, 0);
             if (signal <= -90) return Color.FromRgb(255, 0, 0);
 
             if (signal >= -55)
             {
-                // Verde → Verde-Gălbui  (-40 … -55)
+                // green -> yellow-green (-40 ... -55)
                 double t = (signal - (-55.0)) / 15.0;
                 return Color.FromRgb((byte)(173 - (int)(173 * t)), (byte)(255 - (int)(55 * t)), 0);
             }
             if (signal >= -70)
             {
-                // Verde-Gălbui → Galben  (-55 … -70)
+                // yellow-green -> yellow (-55 ... -70)
                 double t = (signal - (-70.0)) / 15.0;
                 return Color.FromRgb((byte)(255 - (int)(82 * t)), 255, 0);
             }
             if (signal >= -80)
             {
-                // Galben → Portocaliu  (-70 … -80)
+                // yellow -> orange (-70 ... -80)
                 double t = (signal - (-80.0)) / 10.0;
                 return Color.FromRgb(255, (byte)(165 + (int)(90 * t)), 0);
             }
 
-            // Portocaliu → Roșu  (-80 … -90)
+            // orange -> red (-80 ... -90)
             double t2 = (signal - (-90.0)) / 10.0;
             return Color.FromRgb(255, (byte)(165 * t2), 0);
         }
