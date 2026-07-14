@@ -31,6 +31,13 @@ public partial class MainWindow : Window
     private RotateTransform _rotateTransform = null!;
     private TranslateTransform _translateTransform = null!;
 
+    // optimized view pan/zoom variables
+    private bool _isOptimizedPanning = false;
+    private Point _optimizedPanStart;
+    private double _optimizedZoom = 1.0;
+    private ScaleTransform _optScaleTransform = new ScaleTransform(1, 1);
+    private TranslateTransform _optTranslateTransform = new TranslateTransform(0, 0);
+
     // drawing mode variables
     private Point _startPoint;
     private bool _isDrawingLine = false;
@@ -191,7 +198,11 @@ public partial class MainWindow : Window
                 _viewModel.AfterStats              = afterStats;
                 _viewModel.CentralViewMode         = CentralViewMode.Optimized;
 
-                // 4. draw the router indicator only on the Optimized canvas
+                // 4. initialize pan/zoom transforms and set canvas size
+                SetOptimizedMapSize();
+                InitializeOptimizedViewTransforms();
+
+                // 5. draw the router indicator only on the Optimized canvas
                 DrawOptimalRouterOnOptimizedCanvas(optimalPosition);
 
                 _viewModel.StatusMessage =
@@ -270,9 +281,22 @@ public partial class MainWindow : Window
             EditorCanvas.StrokeCollected += EditorCanvas_StrokeCollected;
         };
 
-        // Ctrl+Z / Ctrl+Y keyboard shortcuts
-        InputBindings.Add(new KeyBinding(_viewModel.UndoCommand, Key.Z, ModifierKeys.Control));
-        InputBindings.Add(new KeyBinding(_viewModel.RedoCommand, Key.Y, ModifierKeys.Control));
+        // Ctrl+Z / Ctrl+Y — handled via PreviewKeyDown so InkCanvas doesn't intercept them
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Z && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                if (_viewModel.UndoCommand.CanExecute(null))
+                    _viewModel.UndoCommand.Execute(null);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Y && Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                if (_viewModel.RedoCommand.CanExecute(null))
+                    _viewModel.RedoCommand.Execute(null);
+                e.Handled = true;
+            }
+        };
     }
 
     private void EditorCanvas_StrokeCollected(object sender, InkCanvasStrokeCollectedEventArgs e)
@@ -563,6 +587,71 @@ public partial class MainWindow : Window
 
     #endregion
 
+    #region Optimized View Navigation
+
+    private void InitializeOptimizedViewTransforms()
+    {
+        var group = new TransformGroup();
+        group.Children.Add(_optScaleTransform);
+        group.Children.Add(_optTranslateTransform);
+        OptimizedMapContent.RenderTransform = group;
+        OptimizedMapContent.RenderTransformOrigin = new Point(0, 0);
+    }
+
+    private void SetOptimizedMapSize()
+    {
+        if (_viewModel.FloorPlan == null) return;
+        double dpiScaleX = _viewModel.FloorPlan.DpiX / 96.0;
+        double dpiScaleY = _viewModel.FloorPlan.DpiY / 96.0;
+        double w = _viewModel.FloorPlan.PixelWidth  / dpiScaleX;
+        double h = _viewModel.FloorPlan.PixelHeight / dpiScaleY;
+        OptimizedMapCanvas.Width  = w;
+        OptimizedMapCanvas.Height = h;
+        OptimizedMapContent.Width  = w;
+        OptimizedMapContent.Height = h;
+        // reset zoom/pan when a new optimization result arrives
+        _optimizedZoom = 1.0;
+        _optScaleTransform.ScaleX = 1;
+        _optScaleTransform.ScaleY = 1;
+        _optTranslateTransform.X  = 0;
+        _optTranslateTransform.Y  = 0;
+    }
+
+    private void OptimizedMapContent_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _isOptimizedPanning = true;
+        _optimizedPanStart = e.GetPosition(OptimizedMapCanvas);
+        OptimizedMapContent.CaptureMouse();
+        OptimizedMapContent.Cursor = Cursors.Hand;
+    }
+
+    private void OptimizedMapContent_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isOptimizedPanning) return;
+        var current = e.GetPosition(OptimizedMapCanvas);
+        _optTranslateTransform.X += current.X - _optimizedPanStart.X;
+        _optTranslateTransform.Y += current.Y - _optimizedPanStart.Y;
+        _optimizedPanStart = current;
+    }
+
+    private void OptimizedMapContent_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        _isOptimizedPanning = false;
+        OptimizedMapContent.ReleaseMouseCapture();
+        OptimizedMapContent.Cursor = Cursors.Arrow;
+    }
+
+    private void OptimizedMapCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        e.Handled = true;
+        double zoomChange = e.Delta > 0 ? 0.1 : -0.1;
+        _optimizedZoom = Math.Clamp(_optimizedZoom + zoomChange, 0.2, 5.0);
+        _optScaleTransform.ScaleX = _optimizedZoom;
+        _optScaleTransform.ScaleY = _optimizedZoom;
+    }
+
+    #endregion
+
     #region Survey Points
 
     private void DrawSurveyPoint(Point position, int signalStrength)
@@ -676,8 +765,6 @@ public partial class MainWindow : Window
     private void StartDrawOverPlan_Click(object sender, RoutedEventArgs e)
     {
         DrawingOverlayUI.Visibility = Visibility.Visible;
-        EditorCanvas.Strokes.Clear();
-        ObjectsCanvas.Children.Clear();
         GridBackground.Visibility = Visibility.Collapsed;
         _viewModel.StatusMessage = "Mod desen: trasează linii drepte peste pereții din plan.";
         ActivateDefaultDrawTool();

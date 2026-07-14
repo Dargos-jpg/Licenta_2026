@@ -1295,7 +1295,7 @@
                                            Panel.ZIndex="3"
                                            EditingMode="None">
                                     <InkCanvas.DefaultDrawingAttributes>
-                                        <DrawingAttributes Color="#C8D6F0" Height="3" Width="3" FitToCurve="False"/>
+                                        <DrawingAttributes Color="#1E1E1E" Height="3" Width="3" FitToCurve="False"/>
                                     </InkCanvas.DefaultDrawingAttributes>
                                 </InkCanvas>
 
@@ -1431,11 +1431,17 @@
                 <!-- ══ MOD 2: HEATMAP OPTIMIZAT (simulare poziție router optimă) ══ -->
                 <Grid Visibility="{Binding IsOptimizedViewActive, Converter={StaticResource BoolToVis}}">
 
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                    <ScrollViewer x:Name="OptimizedScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
                                   Background="{StaticResource BgBase}">
-                        <Canvas x:Name="OptimizedMapCanvas" Background="Transparent">
-                            <Grid x:Name="OptimizedMapContent" Background="Transparent">
+                        <Canvas x:Name="OptimizedMapCanvas" Background="Transparent"
+                                MouseWheel="OptimizedMapCanvas_MouseWheel">
+                            <Grid x:Name="OptimizedMapContent" Background="Transparent"
+                                  Cursor="Arrow"
+                                  MouseLeftButtonDown="OptimizedMapContent_MouseDown"
+                                  MouseMove="OptimizedMapContent_MouseMove"
+                                  MouseLeftButtonUp="OptimizedMapContent_MouseUp">
                                 <Image x:Name="OptimizedFloorPlanImage"
                                        Source="{Binding FloorPlan}"
                                        Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Top"

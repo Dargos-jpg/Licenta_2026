@@ -966,7 +966,6 @@ public sealed partial class MainViewModel : ObservableObject
     private void ClearSurveyPoints()
     {
         _surveyPoints.Clear();
-        _mapElements.Clear();
         _undoStack.Clear();
         _redoStack.Clear();
         OnPropertyChanged(nameof(CanUndo));
@@ -974,10 +973,9 @@ public sealed partial class MainViewModel : ObservableObject
         SurveyPointCount = 0;
         HeatmapOverlay   = null;
         DeadZoneOverlay  = null;
-        StatusMessage    = "Toate punctele și obiectele au fost șterse.";
+        StatusMessage    = "Punctele de survey au fost șterse. Pereții și obstacolele sunt păstrate.";
 
-        // also clear visually: strokes, stamps, survey points
-        WeakReferenceMessenger.Default.Send(new ResetMapCanvasMessage());
+        // clear only survey point visuals — keep strokes and obstacles
         WeakReferenceMessenger.Default.Send(new ClearSurveyPointsMessage());
     }
 
