@@ -160,7 +160,6 @@
         <Grid Grid.Column="0" Background="{StaticResource BgPanel}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
@@ -184,7 +183,7 @@
                             <TextBlock Text="WIFI SIGNAL OPTIMIZER"
                                        FontSize="10" FontFamily="Consolas"
                                        FontWeight="Bold" Foreground="#3B82F6"/>
-                            <TextBlock Text="Proiect Licență · v1.0"
+                            <TextBlock Text="Network Audit Suite · v2.0"
                                        FontSize="10" FontFamily="Consolas"
                                        Foreground="{StaticResource TextMuted}" Margin="0,1,0,0"/>
                         </StackPanel>
@@ -192,84 +191,7 @@
                 </Grid>
             </Border>
 
-            <Border Grid.Row="1"
-                    Background="{StaticResource BgBase}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,0,0,1"
-                    Padding="10,8">
-                <Border Background="#0D0D0F" CornerRadius="6" Padding="3">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Padding="0,7" Margin="0" Cursor="Hand"
-                                BorderThickness="0" Click="SetBasicMode_Click">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="bd" CornerRadius="4"
-                                                        Padding="{TemplateBinding Padding}"
-                                                        Background="Transparent">
-                                                    <TextBlock x:Name="txt" Text="BASIC"
-                                                               FontSize="10" FontWeight="Bold"
-                                                               FontFamily="Consolas"
-                                                               HorizontalAlignment="Center"
-                                                               Foreground="{StaticResource TextMuted}"/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <DataTrigger Binding="{Binding IsExpertMode}" Value="False">
-                                                        <Setter TargetName="bd" Property="Background" Value="{StaticResource Accent}"/>
-                                                        <Setter TargetName="txt" Property="Foreground" Value="White"/>
-                                                    </DataTrigger>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="bd" Property="Background" Value="{StaticResource BgHover}"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                        <Button Grid.Column="1" Padding="0,7" Margin="0" Cursor="Hand"
-                                BorderThickness="0" Click="SetExpertMode_Click">
-                            <Button.Style>
-                                <Style TargetType="Button">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="bd" CornerRadius="4"
-                                                        Padding="{TemplateBinding Padding}"
-                                                        Background="Transparent">
-                                                    <TextBlock x:Name="txt" Text="EXPERT"
-                                                               FontSize="10" FontWeight="Bold"
-                                                               FontFamily="Consolas"
-                                                               HorizontalAlignment="Center"
-                                                               Foreground="{StaticResource TextMuted}"/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                                                        <Setter TargetName="bd" Property="Background" Value="{StaticResource Accent}"/>
-                                                        <Setter TargetName="txt" Property="Foreground" Value="White"/>
-                                                    </DataTrigger>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="bd" Property="Background" Value="{StaticResource BgHover}"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </Button.Style>
-                        </Button>
-                    </Grid>
-                </Border>
-            </Border>
-
-            <ScrollViewer Grid.Row="2"
+            <ScrollViewer Grid.Row="1"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,6,0,6">
@@ -380,16 +302,6 @@
                                         ToolTip="Șterge planul încărcat și creează un canvas alb cu grilă (stil caiet). Util dacă nu ai o imagine sau vrei să desenezi planul de la zero. Scara: 1 pătrățel = 1 metru."/>
                             </Grid>
                             <Grid>
-                                <Grid.Style>
-                                    <Style TargetType="Grid">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Grid.Style>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                 <Button Grid.Column="0" Click="StartCalibration_Click" Style="{StaticResource SidebarButton}">
                                     <StackPanel Orientation="Horizontal">
@@ -403,16 +315,6 @@
                             </Grid>
 
                             <Border Margin="2,4,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,6,0">
                                         <Ellipse.Style>
@@ -472,16 +374,6 @@
                             </Grid>
                             <!-- Auto-Scan + selector interval -->
                             <Grid>
-                                <Grid.Style>
-                                    <Style TargetType="Grid">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Grid.Style>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -524,73 +416,6 @@
                             </Border>
 
                             <Border Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <StackPanel>
-                                    <TextBlock Text="REȚELE DETECTATE" FontSize="9" FontFamily="Consolas"
-                                               Foreground="{StaticResource TextMuted}"
-                                               FontWeight="Bold" Margin="2,0,0,6"/>
-                                    <ListBox ItemsSource="{Binding VisibleNetworks}"
-                                             SelectedItem="{Binding SelectedNetwork}"
-                                             Background="Transparent" BorderThickness="0"
-                                             MaxHeight="180"
-                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                             ItemContainerStyle="{StaticResource NetworkItemBasic}">
-                                        <ListBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <Grid Height="26">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="16"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="50"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <iconPacks:PackIconMaterial Grid.Column="0" Kind="Wifi"
-                                                                                Width="11" Height="11" VerticalAlignment="Center"
-                                                                                Foreground="{StaticResource TextMuted}"/>
-                                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                                VerticalAlignment="Center" Margin="4,0">
-                                                        <TextBlock Text="{Binding SSID}"
-                                                                   FontSize="11" FontFamily="Segoe UI"
-                                                                   Foreground="{StaticResource TextPrimary}"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   MaxWidth="115"/>
-                                                        <Border Background="#1A4FC3F7" CornerRadius="2"
-                                                                Margin="4,0,0,0" Padding="3,1">
-                                                            <TextBlock Text="{Binding BandLabel}"
-                                                                       FontSize="8" FontFamily="Segoe UI"
-                                                                       Foreground="#4FC3F7"
-                                                                       VerticalAlignment="Center"/>
-                                                        </Border>
-                                                    </StackPanel>
-                                                    <ProgressBar Grid.Column="2"
-                                                                 Value="{Binding SignalQuality, Mode=OneWay}"
-                                                                 Height="3" VerticalAlignment="Center"/>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ListBox.ItemTemplate>
-                                    </ListBox>
-                                </StackPanel>
-                            </Border>
-
-                            <Border Margin="0,6,0,0">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
                                 <Border Background="#0A0A0F" CornerRadius="6" Padding="0" ClipToBounds="True">
                                     <DataGrid ItemsSource="{Binding VisibleNetworks}"
                                               SelectedItem="{Binding SelectedNetwork}"
@@ -636,17 +461,7 @@
 
                     <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="12,0" Opacity="0.4"/>
 
-                    <Expander IsExpanded="False">
-                        <Expander.Style>
-                            <Style TargetType="Expander" BasedOn="{StaticResource SidebarExpander}">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsExpertMode}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Expander.Style>
+                    <Expander IsExpanded="False" Style="{StaticResource SidebarExpander}">
                         <Expander.Header>
                             <TextBlock Text="ANALIZĂ AVANSATĂ" FontSize="9" FontFamily="Consolas"
                                        FontWeight="Bold" Foreground="{StaticResource TextMuted}"
@@ -790,29 +605,72 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <Border Grid.Row="3"
+            <!-- Beginner's guide button — always visible at sidebar bottom -->
+            <Border Grid.Row="2"
                     Background="#0A0A10"
                     BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,1,0,0"
-                    Padding="12,7"
-                    MinHeight="32">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Ellipse Grid.Column="0" Width="5" Height="5" Fill="{StaticResource Accent}"
-                             VerticalAlignment="Top" Margin="0,3,7,0">
-                        <Ellipse.Effect>
-                            <DropShadowEffect Color="#3B82F6" BlurRadius="5" ShadowDepth="0"/>
-                        </Ellipse.Effect>
-                    </Ellipse>
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding StatusMessage}"
-                               FontSize="10" FontFamily="Consolas"
-                               Foreground="{StaticResource TextSecondary}"
-                               TextWrapping="Wrap"/>
-                </Grid>
+                    BorderThickness="0,1,0,0">
+                <StackPanel>
+                    <Button Margin="10,8,10,4" Padding="10,7" Cursor="Hand"
+                            BorderThickness="1" BorderBrush="#1E3A5F"
+                            Background="#0D1A30" Foreground="#60A5FA"
+                            Click="SetBasicMode_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#1E3A5F"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <iconPacks:PackIconMaterial Kind="BookOpenVariant" Width="12" Height="12"
+                                                        VerticalAlignment="Center" Margin="0,0,6,0"
+                                                        Foreground="#60A5FA"/>
+                            <TextBlock Text="Beginner's Guide"
+                                       FontSize="10" FontFamily="Segoe UI"
+                                       FontWeight="SemiBold" Foreground="#60A5FA"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Border Background="#0A0A10"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="12,7"
+                            MinHeight="32">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Grid.Column="0" Width="5" Height="5" Fill="{StaticResource Accent}"
+                                     VerticalAlignment="Top" Margin="0,3,7,0">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="#3B82F6" BlurRadius="5" ShadowDepth="0"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding StatusMessage}"
+                                       FontSize="10" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextSecondary}"
+                                       TextWrapping="Wrap"/>
+                        </Grid>
+                    </Border>
+                </StackPanel>
             </Border>
         </Grid>
 
@@ -1076,6 +934,27 @@
                                                                         VerticalAlignment="Center" Margin="12,0,0,0"
                                                                         Foreground="#F97316"
                                                                         Visibility="{Binding IsDoctorViewActive, Converter={StaticResource BoolToVis}}"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Rectangle Height="1" Fill="{StaticResource BorderBrush}" Margin="5,4,5,4" Opacity="0.5"/>
+
+                                    <!-- Network Terminal -->
+                                    <Button Style="{StaticResource OptionsMenuItem}"
+                                            Click="OptionsMenuSysadmin_Click">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconMaterial Kind="Console" Width="14" Height="14"
+                                                                        VerticalAlignment="Center" Margin="0,0,10,0"
+                                                                        Foreground="#A78BFA"/>
+                                            <StackPanel>
+                                                <TextBlock Text="Network Terminal" FontSize="12"/>
+                                                <TextBlock Text="Comenzi rețea interactive" FontSize="10"
+                                                           Foreground="{StaticResource TextMuted}"/>
+                                            </StackPanel>
+                                            <iconPacks:PackIconMaterial Kind="Check" Width="12" Height="12"
+                                                                        VerticalAlignment="Center" Margin="12,0,0,0"
+                                                                        Foreground="#A78BFA"
+                                                                        Visibility="{Binding IsSysadminViewActive, Converter={StaticResource BoolToVis}}"/>
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -1573,6 +1452,11 @@
                                    TextAlignment="Center" MaxWidth="340"/>
                     </StackPanel>
                 </Grid>
+
+                <!-- ══ MOD 4: NETWORK TERMINAL (sysadmin) ══ -->
+                <views:SysadminTerminalView
+                    x:Name="SysadminTerminal"
+                    Visibility="{Binding IsSysadminViewActive, Converter={StaticResource BoolToVis}}"/>
 
             </Grid>
             <!-- ═══════════════════════════════════════════════════════ -->

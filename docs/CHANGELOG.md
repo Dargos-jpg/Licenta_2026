@@ -1,0 +1,112 @@
+# Changelog — WiFi Signal Optimizer
+
+Toate modificările față de versiunea predată la teză (commit `60ed887 — Versiune finala licenta`).
+
+---
+
+## [v2.0.0] — Post-teză Portfolio Release
+
+### Adăugat
+
+#### Network Terminal (Sysadmin View) — modul complet nou
+- **`Services/SysadminCommandService.cs`** — motor de comenzi cu:
+  - 17 comenzi: `help`, `clear`, `ping`, `tracert`, `ipconfig`, `nslookup`, `netstat`, `arp`, `route`, `wifi`, `adapter`, `dns`, `gateway`, `router`, `whoami`, `hostname`, `sysinfo`
+  - Sub-comenzi: `wifi [scan|list|profiles|password <ssid>]`, `adapter [list|enable|disable <name>]`, `dns [show|flush|set <primary> [secondary]]`
+  - Streaming live output `IAsyncEnumerable<TerminalLine>` — nu blochează UI-ul
+  - Colorare automată output pe tip: verde=succes, roșu=eroare, galben=warning, albastru=info, violet=comandă, gri=muted
+  - Dictionary static pentru autocomplete cu sub-comenzi per comandă
+  - `[EnumeratorCancellation]` pe toate async iteratoarele pentru `Ctrl+C` corect
+  - Cancel comanda în rulare: `CancellationTokenSource` + kill process tree
+
+- **`Views/SysadminTerminalView.xaml`** — terminal UI cu:
+  - Info bar: hostname, adaptor WiFi activ, indicator status (verde/roșu)
+  - RichTextBox cu FlowDocument — output colorat per linie, paragraf Margin=0
+  - ScrollViewer cu scrollbar slim 4px (același design cu cel global)
+  - Panou sugestii autocomplete (apare dinamic sub input, max 120px height)
+  - Prompt `net ❯` stilizat în albastru
+  - Butoane: ↵ Run (albastru), ⏹ Stop (roșu, dezactivat când nu rulează), ✕ Clear
+  - Font: Cascadia Code → Consolas → Courier New (fallback stack)
+
+- **`Views/SysadminTerminalView.xaml.cs`** — logică terminal:
+  - `Tab` → autocomplete (dacă e un singur match, completare directă; mai multe → afișează lista)
+  - `↑/↓` → navigare history cu snapshot al liniei curente
+  - `Ctrl+C` → cancel comanda activă
+  - `Escape` → ascunde sugestiile
+  - `Enter` → execută comanda
+  - Delegate `GetNetworks` injectat din MainWindow pentru acces la rețelele scanate
+  - `RefreshInfoBar()` la fiecare execuție de comandă (actualizează status WiFi)
+  - Mesaj welcome la pornire
+
+#### CentralViewMode.Sysadmin
+- **`MainViewModel.cs`**: adăugat `Sysadmin` la enum `CentralViewMode`
+- Proprietate `IsSysadminViewActive` + notificare în `OnCentralViewModeChanged`
+- Comandă `SwitchToSysadminViewCommand` cu mesaj status
+
+#### Meniu Vizualizare — opțiune Network Terminal
+- **`MainWindow.xaml`**: buton „Network Terminal" în popup-ul „Vizualizare ▾"
+  - Icon: `PackIconMaterial Kind="Console"`, culoare violet #A78BFA
+  - Indicator ✓ activ legat la `IsSysadminViewActive`
+  - Separator vizual față de Doctor WiFi
+
+#### Handler și wireing
+- **`MainWindow.xaml.cs`**: `OptionsMenuSysadmin_Click` → `SwitchToSysadminViewCommand`
+- Injectare `SysadminTerminal.GetNetworks = () => _viewModel.VisibleNetworks` în constructor
+
+### Modificat
+
+#### UI — Eliminare toggle BASIC/EXPERT + adăugare Beginner's Guide
+- **`MainWindow.xaml`**:
+  - Eliminat `<RowDefinition Height="Auto"/>` (Row 1, pentru toggle)
+  - Eliminat Border-ul cu butoanele `SetBasicMode_Click` / `SetExpertMode_Click`
+  - Renumérotat `Grid.Row`: ScrollViewer central `2→1`, status bar `3→2`
+  - Eliminat `DataTrigger` pentru `IsExpertMode` pe: buton Calibrate, indicator calibrare, grid auto-scan, lista Basic, DataGrid expert, expander ANALIZĂ AVANSATĂ
+  - Expander „ANALIZĂ AVANSATĂ" acum mereu vizibil (nu mai depinde de `IsExpertMode`)
+  - Adăugat Border „Beginner's Guide" în sidebar stânga (Row 2), cu buton care invocă `SetBasicMode_Click`
+  - Header subtitle: `"Proiect Licență · v1.0"` → `"Network Audit Suite · v2.0"`
+  - Adăugat intrare MOD 4 (SysadminTerminalView) în zona centrală
+
+#### ViewModel — Expert mode by default
+- **`MainViewModel.cs`**: `_isExpertMode = false` → `_isExpertMode = true`
+  - Wizardul nu mai apare la pornire; accesibil via butonul „Beginner's Guide"
+
+#### App.xaml — ScrollBar slim global
+- **`App.xaml`**: Adăugat `Style TargetType="ScrollBar"` global:
+  - Vertical: 6px wide, no arrows (RepeatButtons Opacity=0), thumb CornerRadius=3
+  - Horizontal: 6px tall, aceeași logică
+  - Culori thumb: default #3A3A52, hover #5A5A72, drag #3B82F6
+  - Înlocuiește scrollbar-ul urât default Windows în toate ScrollViewer-ele din aplicație
+
+---
+
+## [v1.0.0] — Versiune finală teză (commit `60ed887`)
+
+### Funcționalități complete la predare
+
+#### Core
+- Scanare rețele WiFi prin `ManagedNativeWifi` / `wlanapi.dll`
+- Heatmap IDW (β=3.0) + raycasting prin pereți și obstacole
+- Optimizare router LDPL + Grid Search + scor multi-criteriu
+- Doctor WiFi: K-Means (ML.NET, k=3) + interferență logaritmică
+- Calibrare scară Ekahau-style (drag pe hartă)
+- Export PDF cu QuestPDF
+- Salvare/Încărcare proiect JSON + ISF strokes
+
+#### UI
+- 3 moduri centrale: Normal, Optimized, Doctor
+- Wizard 7 pași (Beginner mode)
+- Toolbox cu 12 instrumente + snap-to-grid
+- Undo/Redo (Ctrl+Z/Y)
+- Comparație Before/After statistici acoperire
+- Zone moarte overlay (threshold configurabil dBm)
+- Pan/Zoom hartă (scroll + drag)
+- Auto-scan cu interval configurabil
+- Signal trend (↑/↓/stabil) + alert degradare
+
+#### Algoritmi implementați (documentați în teză)
+- IDW interpolation O(n·p) cu β=3
+- Raycasting 2D (line-circle, line-line intersection)
+- Log-Distance Path Loss (LDPL) parametrizat per bandă WiFi
+- K-Means clustering (ML.NET) pentru clasificare canale
+- Grid Search O(g·p) pentru optimizare poziție
+- TX Power Calibration (inversarea LDPL din măsurători reale)
+- WiFi 7 MLO simulation (max(2.4, 5, 6 GHz) per pixel)

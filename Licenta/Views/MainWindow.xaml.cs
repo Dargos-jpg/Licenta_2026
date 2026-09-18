@@ -275,6 +275,9 @@ public partial class MainWindow : Window
         // inject access to coverage stats into DoctorPanel (for PDF export)
         DoctorPanel.GetCoverageStats = () => (_viewModel.BeforeStats, _viewModel.AfterStats);
 
+        // give the terminal read-only access to the current visible networks
+        SysadminTerminal.GetNetworks = () => _viewModel.VisibleNetworks;
+
         // hook into the InkCanvas stroke collection for undo/redo support
         Loaded += (_, _) =>
         {
@@ -1255,6 +1258,12 @@ public partial class MainWindow : Window
     {
         OptionsPopup.IsOpen = false;
         _viewModel.SwitchToDoctorViewCommand.Execute(null);
+    }
+
+    private void OptionsMenuSysadmin_Click(object sender, RoutedEventArgs e)
+    {
+        OptionsPopup.IsOpen = false;
+        _viewModel.SwitchToSysadminViewCommand.Execute(null);
     }
 
     #endregion

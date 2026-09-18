@@ -17,7 +17,7 @@ namespace WifiSignalOptimizer.ViewModels;
 /// <summary>
 /// view mode for the central area.
 /// </summary>
-public enum CentralViewMode { Normal, Optimized, Doctor }
+public enum CentralViewMode { Normal, Optimized, Doctor, Sysadmin }
 
 public enum WizardStep
 {
@@ -98,9 +98,9 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCalibrated = false;
 
-    // display mode: false = Basic (regular users), true = Expert (technicians)
+    // default to expert mode; basic wizard is opt-in via the guide button
     [ObservableProperty]
-    private bool _isExpertMode = false;
+    private bool _isExpertMode = true;
 
     // the wizard can be closed with X without changing Basic/Expert mode
     [ObservableProperty]
@@ -317,16 +317,18 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(BeforeScoreNorm));
     }
 
-    public bool IsNormalViewActive => CentralViewMode == CentralViewMode.Normal;
+    public bool IsNormalViewActive    => CentralViewMode == CentralViewMode.Normal;
     public bool IsOptimizedViewActive => CentralViewMode == CentralViewMode.Optimized;
-    public bool IsDoctorViewActive => CentralViewMode == CentralViewMode.Doctor;
-    public bool ShowDoctorNoNetwork => IsDoctorViewActive && !IsAnalyzingDoctor && DoctorReport == null && SelectedNetwork == null;
+    public bool IsDoctorViewActive    => CentralViewMode == CentralViewMode.Doctor;
+    public bool IsSysadminViewActive  => CentralViewMode == CentralViewMode.Sysadmin;
+    public bool ShowDoctorNoNetwork   => IsDoctorViewActive && !IsAnalyzingDoctor && DoctorReport == null && SelectedNetwork == null;
 
     partial void OnCentralViewModeChanged(CentralViewMode value)
     {
         OnPropertyChanged(nameof(IsNormalViewActive));
         OnPropertyChanged(nameof(IsOptimizedViewActive));
         OnPropertyChanged(nameof(IsDoctorViewActive));
+        OnPropertyChanged(nameof(IsSysadminViewActive));
         OnPropertyChanged(nameof(ShowDoctorNoNetwork));
     }
 
@@ -713,6 +715,13 @@ public sealed partial class MainViewModel : ObservableObject
         {
             AnalyzeNetwork();
         }
+    }
+
+    [RelayCommand]
+    private void SwitchToSysadminView()
+    {
+        CentralViewMode = CentralViewMode.Sysadmin;
+        StatusMessage = "Network Terminal — type 'help' for available commands.";
     }
 
     [RelayCommand]
