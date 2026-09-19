@@ -4,6 +4,61 @@ Toate modificările față de versiunea predată la teză (commit `60ed887 — V
 
 ---
 
+## [v2.1.0] — AI Improvements + UX Polish + Stability
+
+### Adăugat
+
+#### Algoritmi AI îmbunătățiți
+- **`Services/HeatmapService.cs`** — IDW Physics-Informed:
+  - Parametru `int channel = 1` la `GenerateHeatmap` și `GenerateDeadZoneOverlay`
+  - Atenuare per bandă: 2.5 dBm/m (2.4 GHz), 4.0 dBm/m (5 GHz), 5.5 dBm/m (6 GHz)
+  - Pondere IDW Physics-Informed: `wallFactor = exp(wallPenalty/30)` — pereții reduc simultan semnalul și influența interpolării
+  - Optimizare performanță: guard `wallPenalty > 0` evită `Math.Exp()` inutil (cazul comun fără pereți)
+
+- **`Services/RouterOptimizationService.cs`** — Grid Search Ierarhic:
+  - Înlocuit `GRID_STEP = 10` cu search ierarhic în 2 faze:
+    - Faza 1 (Coarse): `COARSE_STEP = 40px` — scanează toată harta, reține Top-8 candidați
+    - Faza 2 (Fine): `FINE_STEP = 5px` în raza de `FINE_RADIUS = 60px` în jurul fiecărui candidat
+  - Helper `ScoreCandidate()` extras pentru claritate
+  - Fixat `GenerateWeightedEvaluationPoints` să folosească `COARSE_STEP * 3` (nu `GRID_STEP`)
+
+- **`Services/WifiDoctorService.cs`** — Algoritmi ML.NET și capacitate Shannon:
+  - K-Means: normalizare feature-uri înainte de clustering (`/maxInterf`, `/maxCoCh`, `/maxAdj`)
+  - Shannon capacity în loc de viteze hardcodate: `C = B·log₂(1+SNR)·η` (η=0.65 pentru 5/6GHz, 0.55 pentru 2.4GHz)
+
+#### UX & UI
+- **Loading overlay** — `IsProcessing`/`ProcessingMessage` cu spinner animat (`PackIconMaterial Kind="Loading"` + `RotateTransform`) vizibil pe tot panoul central în timp ce se generează heatmap sau optimizare
+- **Animații view transitions** — `DoubleAnimation` + `CubicEase` fade-in la schimbarea modului central (Normal/Optimized/Doctor/Sysadmin)
+- **ToolTips** pe toate cele 11 butoane din toolbox — descriere concisă a fiecărui instrument
+- **Indicator simulator** — mesaj de status clar când WiFi-ul este simulat (`[SIMULAT]` prefix)
+
+#### Export PDF Panoul de Optimizare
+- **`Services/ReportExportService.cs`** — metodă nouă `ExportOptimizationReport(CoverageStats before, CoverageStats after)`:
+  - Raport PDF dedicat optimizării cu scor înainte/după, tabel comparativ complet, distribuție calitate semnal pe categorii
+  - Același design dark-theme cu Doctor WiFi PDF
+- **`ViewModels/MainViewModel.cs`** — `ExportOptimizationReportCommand` (RelayCommand cu CanExecute = HasCompareStats)
+- **`Views/MainWindow.xaml`** — buton PDF în headerul panoului „ANALIZĂ AI OPTIMIZARE" (verde, dezactivat până există statistici)
+
+#### Auto-load ultimă sesiune la startup
+- **`Services/ProjectService.cs`** — `SaveLastProjectPath()` / `GetLastProjectPath()` / `LoadProjectFromPath(string)`:
+  - Calea ultimului proiect salvată în `%LocalAppData%\WifiSignalOptimizer\lastproject.txt`
+  - `SaveProject` și `LoadProject` apelează automat `SaveLastProjectPath` după succes
+  - `LoadProjectFromPath(string)` — încarcă fără dialog (pentru restaurare automată)
+- **`ViewModels/MainViewModel.cs`** — `TryAutoLoadLastProjectAsync()`: la startup, dacă există o sesiune anterioară, oferă utilizatorului opțiunea Yes/No de restaurare
+- **`Views/MainWindow.xaml.cs`** — `Loaded += async (_, _) => await _viewModel.TryAutoLoadLastProjectAsync()`
+
+#### UAC Elevation pentru adapter enable/disable (OPEN-001)
+- **`Services/SysadminCommandService.cs`**:
+  - Helper `IsAdministrator()` via `WindowsPrincipal` + `WindowsBuiltInRole.Administrator`
+  - `adapter enable/disable` detectează dacă aplicația rulează ca admin:
+    - Dacă da: execuție directă streamată ca înainte
+    - Dacă nu: lansează `cmd.exe` cu `Verb = "runas"` (UAC prompt) + mesaj informativ
+
+### IWifiScannerService.cs / WifiScannerService.cs
+- Proprietate `bool IsSimulated { get; }` — true când nu s-a găsit adaptor WiFi la startup
+
+---
+
 ## [v2.0.0] — Post-teză Portfolio Release
 
 ### Adăugat

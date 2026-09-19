@@ -10,6 +10,80 @@ namespace WifiSignalOptimizer.Services
 {
     public class ProjectService
     {
+        private static string LastProjectFile =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                         "WifiSignalOptimizer", "lastproject.txt");
+
+        public static void SaveLastProjectPath(string path)
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(LastProjectFile)!;
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(LastProjectFile, path);
+            }
+            catch { /* non-critical */ }
+        }
+
+        public static string? GetLastProjectPath()
+        {
+            try
+            {
+                if (!File.Exists(LastProjectFile)) return null;
+                var path = File.ReadAllText(LastProjectFile).Trim();
+                return File.Exists(path) ? path : null;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// loads a project directly from a known path without showing the open dialog.
+        /// </summary>
+        public (ProjectData? data, StrokeCollection? strokes) LoadProjectFromPath(string filePath)
+        {
+            try
+            {
+                string jsonString = File.ReadAllText(filePath);
+                var projectData = JsonSerializer.Deserialize<ProjectData>(jsonString);
+
+                if (projectData != null)
+                {
+                    StrokeCollection? strokes = null;
+                    if (!string.IsNullOrEmpty(projectData.SketchIsfBase64))
+                    {
+                        try
+                        {
+                            byte[] isfBytes = Convert.FromBase64String(projectData.SketchIsfBase64);
+                            using var ms = new MemoryStream(isfBytes);
+                            strokes = new StrokeCollection(ms);
+                        }
+                        catch { }
+                    }
+                    SaveLastProjectPath(filePath);
+                    return (projectData, strokes);
+                }
+
+                var oldPoints = JsonSerializer.Deserialize<List<SurveyPoint>>(jsonString);
+                if (oldPoints?.Count > 0)
+                {
+                    SaveLastProjectPath(filePath);
+                    return (new ProjectData
+                    {
+                        SurveyPoints = oldPoints,
+                        MapElements  = [],
+                        PixelsPerMeter = 50.0,
+                        IsCalibrated = false
+                    }, null);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Eroare la încărcare: {ex.Message}", "Eroare",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            return (null, null);
+        }
+
         /// <summary>
         /// saves the complete project: points, obstacles, calibration, vector sketch and PNG.
         /// </summary>
@@ -64,6 +138,7 @@ namespace WifiSignalOptimizer.Services
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string jsonString = JsonSerializer.Serialize(projectData, options);
                 File.WriteAllText(saveDialog.FileName, jsonString);
+                SaveLastProjectPath(saveDialog.FileName);
 
                 // detailed message with what was saved
                 var parts = new List<string> { $"{points.Count} puncte WiFi" };
@@ -126,6 +201,7 @@ namespace WifiSignalOptimizer.Services
                         $"Proiect încărcat!\n\nConținut: {string.Join(", ", parts)}.",
                         "Încărcare Completă", MessageBoxButton.OK, MessageBoxImage.Information);
 
+                    SaveLastProjectPath(openDialog.FileName);
                     return (projectData, strokes);
                 }
 

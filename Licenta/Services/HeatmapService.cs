@@ -59,8 +59,8 @@ namespace WifiSignalOptimizer.Services
                         double effectiveSignal = p.SignalStrength - wallPenalty - airLoss;
 
                         // physics-informed weight: walls reduce both signal AND interpolation influence.
-                        // a point behind 2 walls contributes ~50% less than one in open space.
-                        double wallFactor = Math.Exp(wallPenalty / 30.0);
+                        // skip exp() when no attenuation — the common case, saves millions of calls.
+                        double wallFactor = wallPenalty > 0.0 ? Math.Exp(wallPenalty / 30.0) : 1.0;
                         double weight = 1.0 / (Math.Pow(distPixels, idwPower) * wallFactor);
                         numerator += weight * effectiveSignal;
                         denominator += weight;
@@ -133,7 +133,7 @@ namespace WifiSignalOptimizer.Services
                     double wallPenalty = GetObstacleAttenuation(x, y, p.X, p.Y, obstacles, wallSegments);
                     double airLoss = (distPx / ppm) * airLossPerMeter;
                     double effectiveSignal = p.SignalStrength - wallPenalty - airLoss;
-                    double wallFactor = Math.Exp(wallPenalty / 30.0);
+                    double wallFactor = wallPenalty > 0.0 ? Math.Exp(wallPenalty / 30.0) : 1.0;
                     double weight = 1.0 / (Math.Pow(distPx, idwPower) * wallFactor);
                     numerator  += weight * effectiveSignal;
                     denominator += weight;

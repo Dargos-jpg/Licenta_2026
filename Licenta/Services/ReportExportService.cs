@@ -18,6 +18,159 @@ public static class ReportExportService
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
+    public static void ExportOptimizationReport(CoverageStats before, CoverageStats after)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title    = "Exportă Raport Optimizare PDF",
+            Filter   = "Raport PDF (*.pdf)|*.pdf",
+            FileName = $"WiFi_Optimizare_{DateTime.Now:yyyyMMdd_HHmm}.pdf"
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(36);
+                    page.DefaultTextStyle(x => x.FontFamily("Arial").FontSize(10).FontColor("#E0E0E8"));
+                    page.Background().Background("#0D0D0F");
+
+                    page.Header().Element(ComposeHeader);
+                    page.Content().Element(c => ComposeOptContent(c, before, after));
+                    page.Footer().Element(ComposeFooter);
+                });
+            }).GeneratePdf(dialog.FileName);
+
+            MessageBox.Show(
+                $"Raport exportat cu succes!\n{dialog.FileName}",
+                "Export PDF", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Eroare la export PDF:\n{ex.Message}",
+                "Eroare", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static void ComposeOptContent(IContainer c, CoverageStats before, CoverageStats after)
+    {
+        c.PaddingTop(12).Column(col =>
+        {
+            col.Spacing(14);
+
+            // title block
+            col.Item().Background("#101014").Border(1).BorderColor("#1E3A5F").CornerRadius(6).Padding(16).Column(inner =>
+            {
+                inner.Item().Row(row =>
+                {
+                    row.AutoItem().Width(3).Background("#3B82F6").CornerRadius(1);
+                    row.AutoItem().Width(10);
+                    row.RelativeItem().Column(sub =>
+                    {
+                        sub.Item().Text("RAPORT OPTIMIZARE ROUTER AI")
+                            .FontSize(16).Bold().FontColor("#F0F0F5").FontFamily("Courier New");
+                        sub.Item().PaddingTop(4).Text("Comparație acoperire WiFi înainte și după optimizarea poziției routerului")
+                            .FontSize(9).FontColor("#5A5A72").FontFamily("Courier New");
+                    });
+                });
+                inner.Item().PaddingTop(10).Row(row =>
+                {
+                    var (scoreHexA, _) = ScoreColor(after.OverallScore);
+                    var (scoreHexB, _) = ScoreColor(before.OverallScore);
+                    row.RelativeItem().Column(sub =>
+                    {
+                        sub.Item().Text("ÎNAINTE").FontSize(8).Bold().FontColor("#5A5A72").FontFamily("Courier New");
+                        sub.Item().PaddingTop(2).Row(r2 =>
+                        {
+                            r2.AutoItem().Text(before.OverallScore.ToString("F0")).FontSize(28).Bold().FontColor(scoreHexB).FontFamily("Courier New");
+                            r2.AutoItem().AlignBottom().PaddingBottom(4).Text("/100").FontSize(10).FontColor("#5A5A72").FontFamily("Courier New");
+                            r2.AutoItem().Width(8);
+                            r2.AutoItem().AlignMiddle().Text(before.ScoreGrade).FontSize(12).Bold().FontColor(scoreHexB).FontFamily("Courier New");
+                        });
+                    });
+                    row.AutoItem().Width(30).AlignCenter().AlignMiddle()
+                        .Text("→").FontSize(22).FontColor("#3B82F6").FontFamily("Courier New");
+                    row.RelativeItem().Column(sub =>
+                    {
+                        sub.Item().Text("DUPĂ OPTIMIZARE AI").FontSize(8).Bold().FontColor("#22C55E").FontFamily("Courier New");
+                        sub.Item().PaddingTop(2).Row(r2 =>
+                        {
+                            r2.AutoItem().Text(after.OverallScore.ToString("F0")).FontSize(28).Bold().FontColor(scoreHexA).FontFamily("Courier New");
+                            r2.AutoItem().AlignBottom().PaddingBottom(4).Text("/100").FontSize(10).FontColor("#5A5A72").FontFamily("Courier New");
+                            r2.AutoItem().Width(8);
+                            r2.AutoItem().AlignMiddle().Text(after.ScoreGrade).FontSize(12).Bold().FontColor(scoreHexA).FontFamily("Courier New");
+                        });
+                    });
+                });
+            });
+
+            // comparison table
+            col.Item().Element(e => CoverageCompareSection(e, before, after));
+
+            // distribution breakdown
+            col.Item().Element(e => OptDistributionSection(e, before, after));
+
+            // legend
+            col.Item().Element(e => LegendSection(e));
+        });
+    }
+
+    private static void OptDistributionSection(IContainer c, CoverageStats before, CoverageStats after)
+    {
+        c.Column(col =>
+        {
+            col.Item().Element(e => SectionTitle(e, "DISTRIBUȚIE CALITATE SEMNAL"));
+            col.Item().PaddingTop(3).Text("Procentul din suprafața casei pentru fiecare categorie de semnal, înainte și după optimizare.")
+                .FontSize(7).FontColor("#5A5A72").FontFamily("Courier New");
+            col.Item().PaddingTop(6).Table(table =>
+            {
+                table.ColumnsDefinition(cols =>
+                {
+                    cols.RelativeColumn();
+                    cols.ConstantColumn(90);
+                    cols.ConstantColumn(90);
+                    cols.ConstantColumn(55);
+                });
+
+                table.Header(h =>
+                {
+                    h.Cell().Background("#1A1A1F").Padding(6).Text("CATEGORIE").FontSize(8).Bold().FontColor("#5A5A72").FontFamily("Courier New");
+                    h.Cell().Background("#1A1A1F").Padding(6).Text("ÎNAINTE").FontSize(8).Bold().FontColor("#5A5A72").FontFamily("Courier New");
+                    h.Cell().Background("#1A1A1F").Padding(6).Text("DUPĂ").FontSize(8).Bold().FontColor("#22C55E").FontFamily("Courier New");
+                    h.Cell().Background("#1A1A1F").Padding(6).Text("DELTA").FontSize(8).Bold().FontColor("#5A5A72").FontFamily("Courier New");
+                });
+
+                void Row(string label, string color, double bVal, double aVal)
+                {
+                    double delta = aVal - bVal;
+                    bool better = delta >= 0;
+                    table.Cell().Background("#151518").BorderBottom(1).BorderColor("#2A2A35").Padding(5)
+                        .Background(color + "18").Text(label).FontSize(9).FontColor(color);
+                    table.Cell().Background("#151518").BorderBottom(1).BorderColor("#2A2A35").Padding(5)
+                        .Text($"{bVal:F0}%").FontSize(9).FontColor("#8888AA").FontFamily("Courier New");
+                    table.Cell().Background("#151518").BorderBottom(1).BorderColor("#2A2A35").Padding(5)
+                        .Text($"{aVal:F0}%").FontSize(9).Bold().FontColor("#22C55E").FontFamily("Courier New");
+                    table.Cell().Background("#151518").BorderBottom(1).BorderColor("#2A2A35").Padding(5)
+                        .Text($"{delta:+0;-0;0}%").FontSize(9).FontColor(better ? "#22C55E" : "#EF4444").FontFamily("Courier New");
+                }
+
+                Row("Excelent  (> -50 dBm)", "#22C55E",  before.ExcellentPercent, after.ExcellentPercent);
+                Row("Bun       (-50 / -65 dBm)", "#A3E635", before.GoodPercent,     after.GoodPercent);
+                Row("Acceptabil (-65 / -75 dBm)", "#EAB308", before.FairPercent,    after.FairPercent);
+                Row("Slab      (-75 / -85 dBm)", "#F97316", before.PoorPercent,     after.PoorPercent);
+                Row("Zona moartă (< -85 dBm)",   "#EF4444", before.DeadZonePercent, after.DeadZonePercent);
+            });
+            col.Item().PaddingTop(4)
+                .Text($"Model: Log-Distance Path Loss + Raycasting · {after.TotalSamples:N0} eșantioane evaluate")
+                .FontSize(7).FontColor("#3A3A50").FontFamily("Courier New");
+        });
+    }
+
     public static void ExportDoctorReport(
         NetworkHealthReport report,
         CoverageStats? beforeStats = null,

@@ -1750,14 +1750,54 @@
                 <Border Grid.Row="0"
                         Background="{StaticResource BgSection}"
                         BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="0,0,0,1" Padding="12,10">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Rectangle Width="3" Height="12" Fill="{StaticResource Accent}"
-                                   VerticalAlignment="Center" RadiusX="1" RadiusY="1" Margin="0,0,8,0"/>
-                        <TextBlock Text="ANALIZĂ AI OPTIMIZARE"
-                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
-                                   Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
-                    </StackPanel>
+                        BorderThickness="0,0,0,1" Padding="12,8">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <Rectangle Width="3" Height="12" Fill="{StaticResource Accent}"
+                                       VerticalAlignment="Center" RadiusX="1" RadiusY="1" Margin="0,0,8,0"/>
+                            <TextBlock Text="ANALIZĂ AI OPTIMIZARE"
+                                       FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                       Foreground="{StaticResource TextMuted}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <!-- Export PDF button — vizibil doar după optimizare -->
+                        <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Command="{Binding ExportOptimizationReportCommand}"
+                                Background="#1A2A1A" BorderBrush="#22C55E30" BorderThickness="1"
+                                Padding="7,4" Cursor="Hand"
+                                ToolTip="Exportă raportul de optimizare ca PDF">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="bd"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        CornerRadius="5" Padding="{TemplateBinding Padding}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="bd" Property="Background" Value="#22C55E20"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter Property="Opacity" Value="0.35"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="FilePdfBox" Width="12" Height="12"
+                                                             Foreground="#22C55E" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBlock Text="PDF" FontSize="9" FontFamily="Consolas"
+                                           Foreground="#22C55E" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
                 </Border>
 
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">

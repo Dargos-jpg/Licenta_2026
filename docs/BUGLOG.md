@@ -5,6 +5,57 @@ Format: **[Sesiune/Commit]** — Simptom → Cauză → Fix
 
 ---
 
+## Sesiunea v2.1 — AI Improvements + UX Polish
+
+### BUG-2025-001 — CS0103: 'GRID_STEP' does not exist după refactorizare ierarhică
+**Simptom:** Build fail — `error CS0103: The name 'GRID_STEP' does not exist in the current context` în `RouterOptimizationService.cs` linia 502  
+**Cauza:** Constanta `GRID_STEP = 10` a fost înlocuită cu `COARSE_STEP / FINE_STEP`, dar metoda `GenerateWeightedEvaluationPoints` folosea încă `GRID_STEP * 3` — necapturat de Find & Replace deoarece era într-un loc diferit  
+**Fix:** Înlocuit `GRID_STEP * 3` cu `COARSE_STEP * 3` în `GenerateWeightedEvaluationPoints`  
+**Lecție:** La redenumirea constantelor, verifică **toate** locurile de utilizare cu Grep, nu doar zona modificată
+
+---
+
+### BUG-2025-002 — Regresie performanță heatmap după IDW physics-informed
+**Simptom:** Generarea heatmap-ului durează vizibil mai mult față de versiunea anterioară  
+**Cauza:** `Math.Exp(wallPenalty / 30.0)` era apelat pentru fiecare pereche pixel-punct, inclusiv când `wallPenalty == 0` (cazul cel mai frecvent — fără pereți sau obiecte între punct și pixel)  
+**Fix:** Guard de performanță: `double wallFactor = wallPenalty > 0.0 ? Math.Exp(wallPenalty / 30.0) : 1.0;`  
+**Efect:** Performanța revine la nivelul original pentru proiecte fără pereți desenați; proiectele cu mulți pereți sunt puțin mai lente (acceptabil — calculul este fizic mai corect)  
+**Lecție:** Funcțiile matematice transcendente (`exp`, `log`, `sqrt`) în inner loop-uri de milioane de iterații pot degrada semnificativ performanța; early-exit pentru cazul neutru (factor=1) este o optimizare sigură
+
+---
+
+### BUG-2025-003 — CS1626/CS1631: yield return în try-catch (adapter UAC elevation)
+**Simptom:** Build fail — `error CS1626: Cannot yield a value in the body of a try block with a catch clause` și `error CS1631: Cannot yield a value in the body of a catch clause`  
+**Cauza:** Prima implementare a UAC elevation folosea `yield return` direct în interiorul blocului `try-catch` — interzis în C# pentru async iteratoare  
+**Fix:** Rezultatele (success/error) colectate în variabile locale (`elevOk`, `elevErrMsg`) în afara try-catch; `yield return` apelat după blocul try-catch  
+**Lecție:** C# nu permite `yield return` / `yield break` în interiorul blocurilor `try-catch`; extrage rezultatele în variabile locale și fă yield după
+
+---
+
+### Potențiale Bug-uri Viitoare (OPEN)
+
+#### OPEN-002 — Heatmap channel mismatch la reload proiect
+**Risc:** La auto-load sesiune (v2.1), heatmap-ul este regenerat automat cu `SelectedNetwork.Channel`. Dacă proiectul salvat a avut un canal diferit de cel curent al rețelei (re-scanare după reload), parametrul `airLossPerMeter` poate fi inconsistent cu datele salvate.  
+**Severitate:** Scăzută — nu afectează funcționalitatea, doar acuratețea vizuală a heatmap-ului  
+**Status:** OPEN — de monitorizat; fix posibil prin salvarea `Channel` în `ProjectData`
+
+#### OPEN-003 — Auto-load race condition la GenerateHeatmap pe startup
+**Risc:** `TryAutoLoadLastProjectAsync` apelează `GenerateHeatmap()` la final dacă există date suficiente. Dacă utilizatorul interacționează cu UI-ul în timpul acestei generări asincrone (apasă un buton, schimbă rețeaua), starea poate deveni inconsistentă.  
+**Severitate:** Scăzută — protejat parțial de `IsProcessing` overlay; generarea heatmap este single-threaded pe thread-ul UI  
+**Status:** OPEN — de investigat dacă se manifestă în practică
+
+#### OPEN-004 — QuestPDF export optimization: `GoodPercent`/`FairPercent`/`PoorPercent` pot lipsi din `CoverageStats`
+**Risc:** `ExportOptimizationReport` accesează `before.GoodPercent`, `before.FairPercent`, `before.PoorPercent`. Dacă `CoverageStats` este generat de `CalculateRealStats` (varianta IDW din survey points), aceste câmpuri pot fi 0 dacă nu sunt calculați explicit.  
+**Severitate:** Medie — PDF-ul ar arăta date incorecte (0%) fără eroare vizibilă  
+**Status:** OPEN — de verificat că `RouterOptimizationService.CalculateRealStats` populează toate câmpurile din `CoverageStats`
+
+#### OPEN-005 — Memory leak potențial în `TryAutoLoadLastProjectAsync` la apel repetat
+**Risc:** `TryAutoLoadLastProjectAsync` trimite `WeakReferenceMessenger` messages și înregistrează strokes noi fără să curețe explicit listeners vechi. La un reload manual urmat de auto-load, ar putea exista duplicate listeners.  
+**Severitate:** Scăzută — `WeakReferenceMessenger` folosește weak references, GC curăță automat  
+**Status:** MONITORIZAT
+
+---
+
 ## Sesiunea Post-Teză (v2.0)
 
 ### BUG-2024-001 — Build fail după eliminarea toggle-ului BASIC/EXPERT

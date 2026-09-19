@@ -61,6 +61,8 @@ public partial class MainWindow : Window
 
         DataContext = _viewModel;
 
+        Loaded += async (_, _) => await _viewModel.TryAutoLoadLastProjectAsync();
+
         WeakReferenceMessenger.Default.Register<ClearSurveyPointsMessage>(this, (r, m) =>
         {
             ClearVisualSurveyPoints();

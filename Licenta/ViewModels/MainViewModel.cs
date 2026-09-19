@@ -322,6 +322,14 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(UniformityDelta));
         OnPropertyChanged(nameof(AfterScoreNorm));
         OnPropertyChanged(nameof(BeforeScoreNorm));
+        ExportOptimizationReportCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(HasCompareStats))]
+    private void ExportOptimizationReport()
+    {
+        if (BeforeStats == null || AfterStats == null) return;
+        ReportExportService.ExportOptimizationReport(BeforeStats, AfterStats);
     }
 
     public bool IsNormalViewActive    => CentralViewMode == CentralViewMode.Normal;
@@ -948,6 +956,97 @@ public sealed partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             StatusMessage = $"Eroare la încărcarea proiectului: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// silently loads the last saved project on startup if one exists. no dialog shown.
+    /// </summary>
+    public async Task TryAutoLoadLastProjectAsync()
+    {
+        var lastPath = ProjectService.GetLastProjectPath();
+        if (lastPath == null) return;
+
+        var result = MessageBox.Show(
+            $"Se găsit ultimul proiect salvat:\n{System.IO.Path.GetFileName(lastPath)}\n\nDorești să îl încarci automat?",
+            "Restaurare Sesiune", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes) return;
+
+        try
+        {
+            var (projectData, strokes) = _projectService.LoadProjectFromPath(lastPath);
+            if (projectData == null) return;
+
+            _surveyPoints.Clear();
+            _mapElements.Clear();
+            _undoStack.Clear();
+            _redoStack.Clear();
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+            SurveyPointCount  = 0;
+            HeatmapOverlay    = null;
+            OptimizedHeatmapOverlay = null;
+            DeadZoneOverlay   = null;
+            IsOptimizationDone = false;
+            DoctorReport      = null;
+            BeforeStats       = null;
+            AfterStats        = null;
+            CentralViewMode   = CentralViewMode.Normal;
+
+            FloorPlan = null;
+            if (!string.IsNullOrEmpty(projectData.SketchPngBase64))
+            {
+                var restoredPlan = await _mapService.LoadFromBase64Async(projectData.SketchPngBase64);
+                if (restoredPlan != null)
+                    FloorPlan = restoredPlan;
+            }
+
+            WeakReferenceMessenger.Default.Send(new ResetMapCanvasMessage());
+
+            foreach (var point in projectData.SurveyPoints)
+                _surveyPoints.Add(point);
+            foreach (var element in projectData.MapElements)
+                _mapElements.Add(element);
+
+            PixelsPerMeter   = projectData.PixelsPerMeter;
+            IsCalibrated     = projectData.IsCalibrated;
+            SurveyPointCount = _surveyPoints.Count;
+
+            var networksFromSave = _surveyPoints
+                .SelectMany(p => p.DetectedNetworks)
+                .GroupBy(n => n.SSID)
+                .Select(g => new WifiNetwork
+                {
+                    SSID = g.Key,
+                    BSSID = g.First().BSSID,
+                    SignalStrength = (int)g.Average(n => n.SignalStrength),
+                    Channel = g.First().Channel
+                })
+                .OrderByDescending(n => n.SignalStrength)
+                .ToList();
+
+            VisibleNetworks.Clear();
+            foreach (var net in networksFromSave)
+                VisibleNetworks.Add(net);
+
+            if (VisibleNetworks.Count > 0)
+                SelectedNetwork = VisibleNetworks[0];
+
+            WeakReferenceMessenger.Default.Send(new RedrawSurveyPointsMessage(_surveyPoints));
+            WeakReferenceMessenger.Default.Send(new RedrawMapElementsMessage(_mapElements));
+
+            if (strokes != null)
+                WeakReferenceMessenger.Default.Send(new RestoreSketchMessage(strokes));
+
+            StatusMessage = $"Sesiune restaurată: {_surveyPoints.Count} puncte, {VisibleNetworks.Count} rețele.";
+
+            if (FloorPlan != null && _surveyPoints.Count >= 2 && SelectedNetwork != null)
+                GenerateHeatmap();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Eroare la restaurare sesiune: {ex.Message}";
         }
     }
 

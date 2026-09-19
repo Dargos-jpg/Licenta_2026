@@ -40,7 +40,8 @@ WiFi Signal Optimizer is a professional-grade desktop tool that helps you unders
 - Real-time WiFi scanning via Windows native API (`wlanapi.dll`)
 - Interactive floor plan canvas — upload an image or draw from scratch on a grid
 - Survey point placement: click anywhere on the map to record signal at that location
-- IDW interpolation (β=3.0) with 2D raycasting through walls and obstacles
+- **Physics-informed IDW** (v2.1): `weight = 1/(dist³ × exp(wallPenalty/30))` — walls reduce both signal AND interpolation influence
+- **Per-band free-space air loss** (v2.1): 2.5 dBm/m (2.4 GHz), 4.0 dBm/m (5 GHz), 5.5 dBm/m (6 GHz)
 - Calibration: drag a line between two known points to set the pixel-per-meter scale
 - Dead zone overlay: highlights areas below a configurable signal threshold
 
@@ -50,13 +51,11 @@ WiFi Signal Optimizer is a professional-grade desktop tool that helps you unders
   - 5 GHz (WiFi 5/6): range ~18m, path loss exponent 3.3
   - 6 GHz (WiFi 6E/7): range ~10m, path loss exponent 3.7
   - WiFi 7 MLO: simulates all 3 bands simultaneously, takes best signal per pixel
-- Grid search over the floor plan area + multi-criteria scoring:
-  - Minimum signal coverage (30%)
-  - Signal uniformity — variance across all evaluation points (25%)
-  - Position quality — penalizes edges and corners (15%)
-  - Consistency with real measurements — MAE between model and survey data (30%)
+- **Hierarchical Grid Search** (v2.1): coarse pass (40px step, full map) → Top-8 candidates → fine pass (5px step, 60px radius)
+- Multi-criteria scoring: minimum coverage (30%), signal uniformity (25%), position quality (15%), MAE vs. real measurements (30%)
 - TX power calibration from real measurements (inverted LDPL model)
 - Before/After comparison: coverage percentages, average signal, uniformity score
+- **PDF export** of the Before/After optimization report (v2.1)
 
 ### Doctor WiFi (ML)
 - Channel interference analysis using logarithmic IEEE 802.11 model
@@ -182,8 +181,8 @@ This project was developed as a bachelor's thesis in Computer Science:
 
 ## Roadmap
 
-- [ ] **v2.1** — AI improvements: physics-informed IDW kernel, hierarchical grid search, Shannon capacity in Doctor WiFi
-- [ ] **v2.2** — UX polish: view transition animations, loading spinners, export from optimization panel
+- [x] **v2.0** — Network Terminal (Sysadmin view), UI overhaul, dark scrollbars
+- [x] **v2.1** — Physics-informed IDW, hierarchical grid search, Shannon capacity (Doctor WiFi), view animations, loading overlay, PDF export for optimization, auto-load last session, UAC elevation for adapter commands
 - [ ] **v3.0** — Mobile companion app (.NET MAUI) — scan survey points from a phone and send to PC via local network API
 
 ---

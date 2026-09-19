@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
+using System.Security.Principal;
 using System.Text;
 using WifiSignalOptimizer.Models;
 
@@ -300,9 +301,39 @@ public class SysadminCommandService
                     yield return new TerminalLine($"Usage: adapter {sub} <adapter-name>", TerminalLineType.Warning);
                     yield break;
                 }
-                yield return new TerminalLine($"Requires administrator privileges. Executing...", TerminalLineType.Warning);
-                await foreach (var l in ShellStreamAsync($"netsh interface set interface \"{name}\" {(sub == "enable" ? "enable" : "disable")}", ct))
-                    yield return l;
+                var netshCmd = $"netsh interface set interface \"{name}\" {(sub == "enable" ? "enable" : "disable")}";
+                if (IsAdministrator())
+                {
+                    await foreach (var l in ShellStreamAsync(netshCmd, ct))
+                        yield return l;
+                }
+                else
+                {
+                    yield return new TerminalLine("Requires administrator privileges — launching elevated process...", TerminalLineType.Warning);
+                    string? elevErrMsg = null;
+                    bool elevOk = false;
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo("cmd.exe", $"/c {netshCmd}")
+                        {
+                            Verb            = "runas",
+                            UseShellExecute = true,
+                            CreateNoWindow  = true
+                        });
+                        elevOk = true;
+                    }
+                    catch (Exception ex) { elevErrMsg = ex.Message; }
+
+                    if (elevOk)
+                    {
+                        yield return new TerminalLine("Elevated command sent. Run 'adapter list' to verify.", TerminalLineType.Success);
+                    }
+                    else
+                    {
+                        yield return new TerminalLine($"Elevation cancelled or failed: {elevErrMsg}", TerminalLineType.Error);
+                        yield return new TerminalLine("Tip: Right-click the app icon → Run as administrator for seamless admin commands.", TerminalLineType.Info);
+                    }
+                }
                 break;
 
             default:
@@ -463,5 +494,11 @@ public class SysadminCommandService
         }
 
         return [];
+    }
+
+    private static bool IsAdministrator()
+    {
+        using var identity = WindowsIdentity.GetCurrent();
+        return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
     }
 }

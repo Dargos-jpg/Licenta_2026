@@ -116,16 +116,20 @@ public enum ElementType { Router, Fridge, Microwave, ConcreteWall, BrickWall, Wo
 - **Signal history:** `Queue<int>` per SSID, ultimele 10 valori → trend (↑/↓/stabil)
 - **Alert degradare:** dacă semnalul scade >10 dBm față de baseline
 
-### 4.2 Heatmap Normal (IDW + Raycasting)
-- **Algoritm:** Inverse Distance Weighting, β=3.0
-- **Air loss:** 2.5 dBm/metru (simplificat, independent de bandă)
+### 4.2 Heatmap Normal (Physics-Informed IDW + Raycasting) — v2.1
+- **Algoritm:** Inverse Distance Weighting Physics-Informed, β=3.0
+- **Air loss per bandă** (v2.1): 2.5 dBm/m (2.4 GHz), 4.0 dBm/m (5 GHz), 5.5 dBm/m (6 GHz)
+  - Selectat automat din `channel` (>177 → 6GHz, >14 → 5GHz, ≤14 → 2.4GHz)
+- **Greutate IDW physics-informed** (v2.1): `weight = 1/(dist³ × wallFactor)` unde `wallFactor = exp(wallPenalty/30)`
+  - Pereții reduc SIMULTAN semnalul efectiv și influența în interpolare
+  - Guard performanță: `wallFactor = 1.0` când `wallPenalty == 0` (evită `Math.Exp` inutil)
 - **Raycasting:** pentru fiecare pixel → verifică intersecția cu obstacole (cercuri r=20px) și pereți desenați (segmente)
 - **Penalizare pereți:** +10 dBm per perete desenat intersectat
 - **Step:** pixel 2×2 pentru performanță (rezoluție efectivă ½)
 - **Fade:** alpha scade sub -80 dBm, dispare la -90 dBm
 - **Paletă:** verde (#00C800) → galben-verde → galben → portocaliu → roșu (#FF0000)
 
-### 4.3 Optimizare Router (LDPL + Grid Search)
+### 4.3 Optimizare Router (LDPL + Hierarchical Grid Search) — v2.1
 - **Model fizic:** Log-Distance Path Loss (LDPL)
   - `signal = TX - PL(d0) - 10·n·log10(d/d0) - wallLoss - obstacleLoss - σ/2`
 - **Parametri per bandă:**
@@ -133,7 +137,10 @@ public enum ElementType { Router, Fridge, Microwave, ConcreteWall, BrickWall, Wo
   - 5 GHz: n=3.3, wallPenalty=8 dBm, TX=23 dBm, range=18m
   - 6 GHz: n=3.7, wallPenalty=12 dBm, TX=23 dBm, range=10m
   - WiFi 7 MLO: max(2.4+5+6 GHz), TX=26 dBm, range=30m
-- **Grid Search:** step=10px, candidați limitați la bounding box survey points ±30px margine
+- **Hierarchical Grid Search** (v2.1 — înlocuiește Grid Search uniform step=10px):
+  - Faza 1 Coarse: `COARSE_STEP=40px` — scanează toată aria, reține Top-8 candidați (scoruri)
+  - Faza 2 Fine: `FINE_STEP=5px` în raza `FINE_RADIUS=60px` în jurul fiecărui top candidat
+  - Complexitate: `O(g_coarse × p + TOP_K × g_fine × p)` — mult mai rapid decât uniform fine search
 - **Scor compus (4 criterii):**
   - minSignal normalizat: 30% (cu măsurători) / 50% (fără)
   - uniformitate (1/(1+var/100)): 25% / 35%
@@ -146,11 +153,15 @@ public enum ElementType { Router, Fridge, Microwave, ConcreteWall, BrickWall, Wo
 - **Detectare bandă:** canal ≤14 → 2.4 GHz, 15-177 → 5 GHz, >177 → 6 GHz
 - **Model interferență:** logaritmic IEEE 802.11 `weight = 10^((dBm+100)/20)`
 - **Adjacent channel interference (2.4 GHz):** ch±1 × 0.7, ch±2 × 0.3
-- **K-Means:** k=3, seed=0, features: [InterferenceScore, CoChannelNeighbors, AdjacentNeighbors]
+- **K-Means:** k=3, seed=0, features normalizate (v2.1): `[IF/max(IF), CoCh/max(CoCh), Adj/max(Adj)]`
+  - Normalizare previne dominarea unui singur feature în clustering
 - **Clasificare clustere:** 🟢 Optim / 🟡 Aglomerat / 🔴 Critic (ordonate după interference medie)
 - **Scor sănătate 0-100:** penalizări pentru semnal slab + interferențe + congestie, bonus 5G
 - **Clasificare:** Excelent (≥85) / Bun (≥70) / Acceptabil (≥50) / Slab (≥30) / Critic
-- **Estimare viteză:** theoretical 866/300 Mbps × signalFactor × congestionFactor
+- **Estimare viteză Shannon** (v2.1): `C = B·log₂(1+SNR_linear)·η`
+  - B = bandwidth (MHz): 20MHz (2.4GHz), 80MHz (5GHz), 160MHz (6GHz)
+  - η = eficiență practică: 0.55 (2.4GHz), 0.65 (5/6GHz)
+  - SNR_linear = `10^(SNR_dB/10)`
 - **Probleme detectate:** spectru aglomerat, SSID ascuns, multi-AP, semnal marginal
 
 ### 4.5 Network Terminal (Sysadmin)
@@ -162,6 +173,9 @@ public enum ElementType { Router, Fridge, Microwave, ConcreteWall, BrickWall, Wo
 - **History:** ↑/↓ navigare, snapshot linie curentă la navigare
 - **Ctrl+C:** cancel comanda în rulare (`CancellationToken`)
 - **Info bar:** hostname, adaptor WiFi activ, status conectivitate
+- **UAC elevation** (v2.1): `adapter enable/disable` detectează privilegii admin (`WindowsPrincipal`)
+  - Admin: execuție directă streamată
+  - Non-admin: lansează `cmd.exe` cu `Verb="runas"` (UAC prompt) + mesaj de confirmare
 
 ### 4.6 Wizard (Beginner's Guide)
 - **7 pași:** ScanWifi → LoadPlan → Calibrate → DrawWalls → MarkLocations → GenerateHeatmap → OptimizeRouter → Done
@@ -189,13 +203,19 @@ public enum ElementType { Router, Fridge, Microwave, ConcreteWall, BrickWall, Wo
 
 ### 4.10 Export PDF
 - **Bibliotecă:** QuestPDF 2026.2.4
-- **Conținut:** scor sănătate, statistici acoperire, canale K-Means, recomandări, probleme detectate
-- **Acces:** buton din DoctorPanelView
+- **Doctor WiFi PDF:** scor sănătate, statistici acoperire, canale K-Means, recomandări, probleme detectate, comparație Before/After dacă există
+  - **Acces:** buton din DoctorPanelView
+- **Optimization PDF** (v2.1): raport dedicat cu scor înainte/după, tabel comparativ complet, distribuție calitate per categorie (Excelent/Bun/Acceptabil/Slab/Mort)
+  - **Acces:** buton PDF din headerul panoului „ANALIZĂ AI OPTIMIZARE" (vizibil doar după optimizare)
+  - **Metodă:** `ReportExportService.ExportOptimizationReport(CoverageStats before, CoverageStats after)`
+  - **Command:** `ExportOptimizationReportCommand` (CanExecute = HasCompareStats)
 
-### 4.11 Salvare/Încărcare Proiect
+### 4.11 Salvare/Încărcare Proiect + Auto-load (v2.1)
 - **Format:** JSON + ISF (ink strokes) + PNG base64 (plan)
 - **Serviciu:** `ProjectService`
 - **Restaurare completă:** survey points, obstacole, calibrare, schiță, rețele
+- **Auto-save ultima cale:** `%LocalAppData%\WifiSignalOptimizer\lastproject.txt` — salvat automat după fiecare `SaveProject` / `LoadProject` reușit
+- **Auto-load la startup:** `TryAutoLoadLastProjectAsync()` în `MainWindow.Loaded` — dialog Yes/No → restaurare silențioasă + regenerare heatmap automat
 
 ---
 
