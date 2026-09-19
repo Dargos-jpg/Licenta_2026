@@ -26,8 +26,11 @@ public class RouterOptimizationService
     private const double REFERENCE_DISTANCE_M = 1.0;
     private const double SHADOWING_STD_DEV    = 8.0;
 
-    // algorithm parameters
-    private const int    GRID_STEP             = 10;
+    // algorithm parameters — hierarchical grid search (coarse → fine)
+    private const int    COARSE_STEP           = 40;  // phase 1: wide scan
+    private const int    FINE_STEP             = 5;   // phase 2: precision refinement
+    private const int    FINE_RADIUS           = 60;  // px radius around top candidates for phase 2
+    private const int    TOP_K                 = 8;   // best coarse candidates refined in phase 2
     private const double EDGE_PENALTY_DISTANCE = 50.0;
     private const double CORNER_PENALTY_RADIUS = 80.0;
 
@@ -209,74 +212,48 @@ public class RouterOptimizationService
 
         bool hasMeasurements = realMeasurements?.Count > 0;
 
-        var candidates     = GenerateBoundedCandidateGrid(surveyPoints, mapWidth, mapHeight);
         var evaluationPoints = GenerateWeightedEvaluationPoints(surveyPoints, mapWidth, mapHeight);
 
-        Point  bestPosition = new Point(mapWidth / 2, mapHeight / 2);
-        double bestScore    = double.MinValue;
-
-        foreach (var candidate in candidates)
+        // phase 1 — coarse scan (large step, covers entire space quickly)
+        var coarseCandidates = GenerateBoundedCandidateGrid(surveyPoints, mapWidth, mapHeight, COARSE_STEP);
+        var coarseScored = new List<(Point pos, double score)>(coarseCandidates.Count);
+        foreach (var candidate in coarseCandidates)
         {
-            // 1. minimum signal and uniformity (from the physical model)
-            double minSignal   = double.MaxValue;
-            double totalSignal = 0;
-            double totalWeight = 0;
-            var    signals     = new List<double>();
+            double score = ScoreCandidate(candidate, evaluationPoints, obstacles, wallSegments,
+                                          pixelsPerMeter, realMeasurements, hasMeasurements,
+                                          surveyPoints, mapWidth, mapHeight);
+            coarseScored.Add((candidate, score));
+        }
 
-            foreach (var (evalPoint, weight) in evaluationPoints)
+        // phase 2 — fine refinement around top-K coarse winners
+        var topCandidates = coarseScored
+            .OrderByDescending(x => x.score)
+            .Take(TOP_K)
+            .Select(x => x.pos)
+            .ToList();
+
+        Point  bestPosition = topCandidates.Count > 0 ? topCandidates[0] : new Point(mapWidth / 2, mapHeight / 2);
+        double bestScore    = coarseScored.Count > 0 ? coarseScored.Max(x => x.score) : double.MinValue;
+
+        foreach (var center in topCandidates)
+        {
+            double startX = Math.Max(0, center.X - FINE_RADIUS);
+            double endX   = Math.Min(mapWidth,  center.X + FINE_RADIUS);
+            double startY = Math.Max(0, center.Y - FINE_RADIUS);
+            double endY   = Math.Min(mapHeight, center.Y + FINE_RADIUS);
+
+            for (double x = startX; x <= endX; x += FINE_STEP)
+            for (double y = startY; y <= endY; y += FINE_STEP)
             {
-                double signal = CalculateSignalAtPoint(
-                    candidate, evalPoint, obstacles, wallSegments, pixelsPerMeter);
-
-                if (signal < minSignal) minSignal = signal;
-
-                totalSignal += signal * weight;
-                totalWeight += weight;
-                signals.Add(signal);
-            }
-
-            double avgSignal      = totalSignal / totalWeight;
-            double variance       = signals.Sum(s => Math.Pow(s - avgSignal, 2)) / signals.Count;
-            double uniformityScore = 100.0 / (1.0 + variance / 100.0);
-            double positionScore   = CalculatePositionScore(candidate, surveyPoints, mapWidth, mapHeight);
-            double normalizedMin   = Math.Clamp((minSignal + 90.0) / 60.0, 0.0, 1.0);
-
-            // 2. consistency with real measurements (if an SSID is available)
-            // the candidate whose physical model best predicts the real signals wins.
-            // networks with more dense points (JCn4 with 18 points) yield a more precise position.
-            double measureFitScore = 100.0;
-            if (hasMeasurements)
-            {
-                double totalResidual = 0;
-                foreach (var (pos, measured) in realMeasurements!)
+                var candidate = new Point(x, y);
+                double score = ScoreCandidate(candidate, evaluationPoints, obstacles, wallSegments,
+                                              pixelsPerMeter, realMeasurements, hasMeasurements,
+                                              surveyPoints, mapWidth, mapHeight);
+                if (score > bestScore)
                 {
-                    double simulated = CalculateSignalAtPoint(
-                        candidate, pos, obstacles, wallSegments, pixelsPerMeter);
-                    // absolute residual: how well the candidate explains the real signal
-                    totalResidual += Math.Abs(measured - simulated);
+                    bestScore    = score;
+                    bestPosition = candidate;
                 }
-                double avgResidual = totalResidual / realMeasurements!.Count;
-                // small residual -> high score (good candidate)
-                measureFitScore = 100.0 / (1.0 + avgResidual / 12.0);
-            }
-
-            // 3. composite score
-            // with real measurements: more weight on consistency with the real data
-            double wSignal  = hasMeasurements ? 0.30 : 0.50;
-            double wUniform = hasMeasurements ? 0.25 : 0.35;
-            double wPos     = 0.15;
-            double wFit     = hasMeasurements ? 0.30 : 0.00;
-
-            double compositeScore =
-                normalizedMin              * wSignal  +
-                (uniformityScore / 100.0)  * wUniform +
-                (positionScore   / 100.0)  * wPos     +
-                (measureFitScore / 100.0)  * wFit;
-
-            if (compositeScore > bestScore)
-            {
-                bestScore    = compositeScore;
-                bestPosition = candidate;
             }
         }
 
@@ -425,17 +402,73 @@ public class RouterOptimizationService
         return Math.Max(0, score - centerPenalty - edgePenalty - cornerPenalty);
     }
 
-    private List<Point> GenerateBoundedCandidateGrid(
+    private double ScoreCandidate(
+        Point candidate,
+        List<(Point point, double weight)> evaluationPoints,
+        List<MapElement> obstacles,
+        List<(double X1, double Y1, double X2, double Y2)> wallSegments,
+        double pixelsPerMeter,
+        List<(Point pos, int signal)>? realMeasurements,
+        bool hasMeasurements,
         List<SurveyPoint> surveyPoints,
         double mapWidth,
         double mapHeight)
+    {
+        double minSignal   = double.MaxValue;
+        double totalSignal = 0;
+        double totalWeight = 0;
+        var    signals     = new List<double>(evaluationPoints.Count);
+
+        foreach (var (evalPoint, w) in evaluationPoints)
+        {
+            double signal = CalculateSignalAtPoint(candidate, evalPoint, obstacles, wallSegments, pixelsPerMeter);
+            if (signal < minSignal) minSignal = signal;
+            totalSignal += signal * w;
+            totalWeight += w;
+            signals.Add(signal);
+        }
+
+        double avgSignal      = totalSignal / totalWeight;
+        double variance       = signals.Sum(s => Math.Pow(s - avgSignal, 2)) / signals.Count;
+        double uniformityScore = 100.0 / (1.0 + variance / 100.0);
+        double positionScore   = CalculatePositionScore(candidate, surveyPoints, mapWidth, mapHeight);
+        double normalizedMin   = Math.Clamp((minSignal + 90.0) / 60.0, 0.0, 1.0);
+
+        double measureFitScore = 100.0;
+        if (hasMeasurements)
+        {
+            double totalResidual = 0;
+            foreach (var (pos, measured) in realMeasurements!)
+            {
+                double simulated = CalculateSignalAtPoint(candidate, pos, obstacles, wallSegments, pixelsPerMeter);
+                totalResidual += Math.Abs(measured - simulated);
+            }
+            measureFitScore = 100.0 / (1.0 + totalResidual / realMeasurements!.Count / 12.0);
+        }
+
+        double wSignal  = hasMeasurements ? 0.30 : 0.50;
+        double wUniform = hasMeasurements ? 0.25 : 0.35;
+        double wPos     = 0.15;
+        double wFit     = hasMeasurements ? 0.30 : 0.00;
+
+        return normalizedMin             * wSignal  +
+               (uniformityScore / 100.0) * wUniform +
+               (positionScore   / 100.0) * wPos     +
+               (measureFitScore / 100.0) * wFit;
+    }
+
+    private List<Point> GenerateBoundedCandidateGrid(
+        List<SurveyPoint> surveyPoints,
+        double mapWidth,
+        double mapHeight,
+        int step = COARSE_STEP)
     {
         var grid = new List<Point>();
 
         if (surveyPoints.Count == 0)
         {
-            for (double x = mapWidth * 0.2; x < mapWidth * 0.8; x += GRID_STEP)
-                for (double y = mapHeight * 0.2; y < mapHeight * 0.8; y += GRID_STEP)
+            for (double x = mapWidth * 0.2; x < mapWidth * 0.8; x += step)
+                for (double y = mapHeight * 0.2; y < mapHeight * 0.8; y += step)
                     grid.Add(new Point(x, y));
             return grid;
         }
@@ -452,8 +485,8 @@ public class RouterOptimizationService
         if (maxX <= minX || maxY <= minY)
             return new List<Point> { new Point(mapWidth / 2, mapHeight / 2) };
 
-        for (double x = minX; x <= maxX; x += GRID_STEP)
-            for (double y = minY; y <= maxY; y += GRID_STEP)
+        for (double x = minX; x <= maxX; x += step)
+            for (double y = minY; y <= maxY; y += step)
                 grid.Add(new Point(x, y));
 
         return grid;
@@ -466,7 +499,7 @@ public class RouterOptimizationService
     {
         var points = new List<(Point, double)>();
 
-        int evalStep = GRID_STEP * 3;
+        int evalStep = COARSE_STEP * 3;
         double minX = surveyPoints.Min(p => p.X);
         double maxX = surveyPoints.Max(p => p.X);
         double minY = surveyPoints.Min(p => p.Y);

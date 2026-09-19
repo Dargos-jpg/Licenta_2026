@@ -19,7 +19,8 @@ namespace WifiSignalOptimizer.Services
             List<MapElement> obstacles,
             StrokeCollection drawnWalls,
             int width, int height,
-            double pixelsPerMeter)
+            double pixelsPerMeter,
+            int channel = 1)
         {
             if (points == null || points.Count == 0 || width <= 0 || height <= 0)
                 return null!;
@@ -31,6 +32,8 @@ namespace WifiSignalOptimizer.Services
             const double idwPower = 3.0;
             var wallSegments = ExtractWallSegments(drawnWalls);
             double ppm = pixelsPerMeter > 0 ? pixelsPerMeter : 20.0;
+            // per-band free-space air loss: higher frequencies attenuate faster
+            double airLossPerMeter = channel > 177 ? 5.5 : channel > 14 ? 4.0 : 2.5;
 
             for (int y = 0; y < height; y += 2)
             {
@@ -50,13 +53,15 @@ namespace WifiSignalOptimizer.Services
                         double wallPenalty = GetObstacleAttenuation(
                             x, y, p.X, p.Y, obstacles, wallSegments);
 
-                        // 2. aggressive Free Space Path Loss: 2.5 dBm/meter
-                        //    prevents green from extending indefinitely outside the house
-                        double airLoss = distMeters * 2.5;
+                        // 2. per-band Free Space Path Loss
+                        double airLoss = distMeters * airLossPerMeter;
 
                         double effectiveSignal = p.SignalStrength - wallPenalty - airLoss;
 
-                        double weight = 1.0 / Math.Pow(distPixels, idwPower);
+                        // physics-informed weight: walls reduce both signal AND interpolation influence.
+                        // a point behind 2 walls contributes ~50% less than one in open space.
+                        double wallFactor = Math.Exp(wallPenalty / 30.0);
+                        double weight = 1.0 / (Math.Pow(distPixels, idwPower) * wallFactor);
                         numerator += weight * effectiveSignal;
                         denominator += weight;
                     }
@@ -103,7 +108,8 @@ namespace WifiSignalOptimizer.Services
             StrokeCollection drawnWalls,
             int width, int height,
             double pixelsPerMeter,
-            double thresholdDbm = -75.0)
+            double thresholdDbm = -75.0,
+            int channel = 1)
         {
             if (points == null || points.Count == 0 || width <= 0 || height <= 0)
                 return null!;
@@ -111,6 +117,7 @@ namespace WifiSignalOptimizer.Services
             const double idwPower = 3.0;
             var wallSegments = ExtractWallSegments(drawnWalls);
             double ppm = pixelsPerMeter > 0 ? pixelsPerMeter : 20.0;
+            double airLossPerMeter = channel > 177 ? 5.5 : channel > 14 ? 4.0 : 2.5;
 
             int stride = width * 4;
             byte[] pixels = new byte[height * stride];
@@ -124,9 +131,10 @@ namespace WifiSignalOptimizer.Services
                     double distPx = Math.Sqrt(Math.Pow(x - p.X, 2) + Math.Pow(y - p.Y, 2));
                     if (distPx < 1.0) distPx = 1.0;
                     double wallPenalty = GetObstacleAttenuation(x, y, p.X, p.Y, obstacles, wallSegments);
-                    double airLoss = (distPx / ppm) * 2.5;
+                    double airLoss = (distPx / ppm) * airLossPerMeter;
                     double effectiveSignal = p.SignalStrength - wallPenalty - airLoss;
-                    double weight = 1.0 / Math.Pow(distPx, idwPower);
+                    double wallFactor = Math.Exp(wallPenalty / 30.0);
+                    double weight = 1.0 / (Math.Pow(distPx, idwPower) * wallFactor);
                     numerator  += weight * effectiveSignal;
                     denominator += weight;
                 }

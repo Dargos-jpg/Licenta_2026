@@ -18,4 +18,9 @@ public interface IWifiScannerService
     /// gets the last scan results without performing a new scan
     /// </summary>
     IReadOnlyList<WifiNetwork> GetLastScanResults();
+
+    /// <summary>
+    /// true when no WiFi adapter was found at startup and simulated data is returned instead
+    /// </summary>
+    bool IsSimulated { get; }
 }

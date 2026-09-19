@@ -280,6 +280,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isAnalyzingDoctor = false;
 
+    // loading overlay for long async operations (heatmap generation, router optimization)
+    [ObservableProperty]
+    private bool _isProcessing = false;
+
+    [ObservableProperty]
+    private string _processingMessage = string.Empty;
+
     // comparative statistics before/after optimization
     [ObservableProperty]
     private CoverageStats? _beforeStats;
@@ -505,7 +512,9 @@ public sealed partial class MainViewModel : ObservableObject
             // update the signal history for Continuous Survey
             UpdateSignalHistory(networks);
 
-            StatusMessage = $"Scanare completă. {networks.Count} rețele găsite.";
+            StatusMessage = _wifiScanner.IsSimulated
+                ? $"[SIMULARE — niciun adaptor WiFi detectat] {networks.Count} rețele simulate."
+                : $"Scanare completă. {networks.Count} rețele găsite.";
         }
         catch (Exception ex)
         {
@@ -786,13 +795,15 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         StatusMessage = $"Se generează heatmap-ul pentru {SelectedNetwork.SSID}...";
+        IsProcessing = true;
+        ProcessingMessage = $"Generare heatmap · {SelectedNetwork.SSID}";
 
         int width = FloorPlan.PixelWidth;
         int height = FloorPlan.PixelHeight;
         double scara = IsCalibrated ? PixelsPerMeter : 50.0;
 
         WeakReferenceMessenger.Default.Send(
-            new RequestHeatmapGenerationMessage(width, height, scara, SelectedNetwork.SSID));
+            new RequestHeatmapGenerationMessage(width, height, scara, SelectedNetwork.SSID, SelectedNetwork.Channel));
     }
 
     // the "Save" button in the panel sends a message to MainWindow
@@ -960,6 +971,8 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         StatusMessage = "Calculăm poziția optimă folosind AI Multi-Criteria...";
+        IsProcessing = true;
+        ProcessingMessage = "Optimizare AI · Hierarchical Grid Search";
 
         double scara = IsCalibrated ? PixelsPerMeter : 50.0;
         double width = FloorPlan.PixelWidth;
@@ -1092,10 +1105,11 @@ public sealed class RequestHeatmapGenerationMessage
     public int Height { get; }
     public double Scale { get; }
     public string TargetSSID { get; }
+    public int Channel { get; }
 
-    public RequestHeatmapGenerationMessage(int w, int h, double scale, string targetSsid)
+    public RequestHeatmapGenerationMessage(int w, int h, double scale, string targetSsid, int channel = 1)
     {
-        Width = w; Height = h; Scale = scale; TargetSSID = targetSsid;
+        Width = w; Height = h; Scale = scale; TargetSSID = targetSsid; Channel = channel;
     }
 }
 

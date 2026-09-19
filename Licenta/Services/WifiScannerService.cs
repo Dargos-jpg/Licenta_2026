@@ -37,6 +37,8 @@ public sealed class WifiScannerService : IWifiScannerService
         }
     }
 
+    public bool IsSimulated => !_useRealScanning;
+
     public async Task<IReadOnlyList<WifiNetwork>> ScanNetworksAsync()
     {
         if (_useRealScanning)

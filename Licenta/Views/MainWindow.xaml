@@ -1126,7 +1126,7 @@
             <Grid Grid.Row="2">
 
                 <!-- ══ MOD 1: HEATMAP NORMAL (vizualizare curentă) ══ -->
-                <Grid Visibility="{Binding IsNormalViewActive, Converter={StaticResource BoolToVis}}">
+                <Grid x:Name="NormalViewPanel" Visibility="{Binding IsNormalViewActive, Converter={StaticResource BoolToVis}}">
 
                     <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
@@ -1308,7 +1308,7 @@
                 </Grid>
 
                 <!-- ══ MOD 2: HEATMAP OPTIMIZAT (simulare poziție router optimă) ══ -->
-                <Grid Visibility="{Binding IsOptimizedViewActive, Converter={StaticResource BoolToVis}}">
+                <Grid x:Name="OptimizedViewPanel" Visibility="{Binding IsOptimizedViewActive, Converter={StaticResource BoolToVis}}">
 
                     <ScrollViewer x:Name="OptimizedScrollViewer"
                                   HorizontalScrollBarVisibility="Auto"
@@ -1401,7 +1401,7 @@
                 </Grid>
 
                 <!-- ══ MOD 3: DOCTOR WiFi (diagnostic rețea integrat) ══ -->
-                <Grid Visibility="{Binding IsDoctorViewActive, Converter={StaticResource BoolToVis}}">
+                <Grid x:Name="DoctorViewPanel" Visibility="{Binding IsDoctorViewActive, Converter={StaticResource BoolToVis}}">
 
                     <!-- Raport doctor (când există) -->
                     <views:DoctorPanelView
@@ -1457,6 +1457,42 @@
                 <views:SysadminTerminalView
                     x:Name="SysadminTerminal"
                     Visibility="{Binding IsSysadminViewActive, Converter={StaticResource BoolToVis}}"/>
+
+                <!-- ══ LOADING OVERLAY (heatmap / AI optimization) ══ -->
+                <Border Panel.ZIndex="200"
+                        Background="#B2000000"
+                        Visibility="{Binding IsProcessing, Converter={StaticResource BoolToVis}}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="0,0,0,40">
+                        <iconPacks:PackIconMaterial Kind="Loading" Width="48" Height="48"
+                                                    Foreground="#3B82F6"
+                                                    HorizontalAlignment="Center">
+                            <iconPacks:PackIconMaterial.RenderTransformOrigin>0.5,0.5</iconPacks:PackIconMaterial.RenderTransformOrigin>
+                            <iconPacks:PackIconMaterial.RenderTransform>
+                                <RotateTransform/>
+                            </iconPacks:PackIconMaterial.RenderTransform>
+                            <iconPacks:PackIconMaterial.Style>
+                                <Style TargetType="iconPacks:PackIconMaterial">
+                                    <Style.Triggers>
+                                        <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation
+                                                        Storyboard.TargetProperty="RenderTransform.Angle"
+                                                        From="0" To="360"
+                                                        Duration="0:0:0.9"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </iconPacks:PackIconMaterial.Style>
+                        </iconPacks:PackIconMaterial>
+                        <TextBlock Text="{Binding ProcessingMessage}"
+                                   Foreground="#D0D0E8" FontSize="13" FontFamily="Consolas"
+                                   HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                    </StackPanel>
+                </Border>
 
             </Grid>
             <!-- ═══════════════════════════════════════════════════════ -->
@@ -1531,7 +1567,8 @@
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
                                      IsChecked="True"
-                                     Checked="ToolSurveyPoint_Checked">
+                                     Checked="ToolSurveyPoint_Checked"
+                                     ToolTip="Click pe plan → înregistrează semnalul rețelei selectate în acel punct. Necesită cel puțin 2 puncte pentru heatmap.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="MapMarker" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -1542,7 +1579,8 @@
                         <RadioButton x:Name="ToolPointer"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolPointer_Checked">
+                                     Checked="ToolPointer_Checked"
+                                     ToolTip="Mod navigare: drag pe plan pentru a-l muta (pan). Selectează și mută obstacolele deja plasate.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="CursorDefault" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -1556,7 +1594,8 @@
                         <RadioButton x:Name="ToolWallConcrete"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="ConcreteWall">
+                                     Checked="ToolObstacle_Checked" Tag="ConcreteWall"
+                                     ToolTip="Plasează un segment de zid din beton. Atenuare: -12 dBm per traversare. Cel mai opac material pentru semnalul WiFi.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="Wall" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"
@@ -1568,7 +1607,8 @@
                         <RadioButton x:Name="ToolWallBrick"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="BrickWall">
+                                     Checked="ToolObstacle_Checked" Tag="BrickWall"
+                                     ToolTip="Perete de cărămidă. Atenuare: -6 dBm per traversare.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="Wall" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"
@@ -1580,7 +1620,8 @@
                         <RadioButton x:Name="ToolDoorWood"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="WoodDoor">
+                                     Checked="ToolObstacle_Checked" Tag="WoodDoor"
+                                     ToolTip="Ușă din lemn. Atenuare: -3 dBm. Material cu cea mai mică rezistență la semnal.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="DoorOpen" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"
@@ -1594,7 +1635,8 @@
                         <RadioButton x:Name="ToolFridge"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="Fridge">
+                                     Checked="ToolObstacle_Checked" Tag="Fridge"
+                                     ToolTip="Frigider metalic. Atenuare: -15 dBm. Carcasa metalică blochează puternic semnalul — evită plasarea routerului în spatele lui.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="Fridge" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"
@@ -1606,7 +1648,8 @@
                         <RadioButton x:Name="ToolTV"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="TV">
+                                     Checked="ToolObstacle_Checked" Tag="TV"
+                                     ToolTip="Televizor. Atenuare: -5 dBm. Ecranul și componentele interne absorb parțial semnalul.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="Television" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"
@@ -1618,7 +1661,8 @@
                         <RadioButton x:Name="ToolMicrowave"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="Microwave">
+                                     Checked="ToolObstacle_Checked" Tag="Microwave"
+                                     ToolTip="Cuptor cu microunde. Atenuare: -8 dBm. Generează interferențe active pe banda 2.4 GHz când este pornit.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="Microwave" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"
@@ -1633,7 +1677,8 @@
                         <RadioButton x:Name="ToolRouter"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolObstacle_Checked" Tag="Router">
+                                     Checked="ToolObstacle_Checked" Tag="Router"
+                                     ToolTip="Plasează un router virtual ca referință vizuală. Nu afectează calculele de optimizare (routerul real e dedus din scanare).">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="RouterWireless" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"
@@ -1648,7 +1693,8 @@
                         <RadioButton x:Name="ToolDrawWall"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolDrawWall_Checked">
+                                     Checked="ToolDrawWall_Checked"
+                                     ToolTip="Desenează pereți cu creionul (linii libere). Fiecare linie traversată de semnal adaugă -10 dBm atenuare. Util pentru planuri cu forme neregulate.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="Pencil" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -1659,7 +1705,8 @@
                         <RadioButton x:Name="ToolDrawLine"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolDrawLine_Checked">
+                                     Checked="ToolDrawLine_Checked"
+                                     ToolTip="Linie dreaptă cu snap la grilă (20px). Recomandat pentru pereți drepți — mai precis decât creionul liber.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="VectorLine" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -1670,7 +1717,8 @@
                         <RadioButton x:Name="ToolEraser"
                                      GroupName="ActiveTool"
                                      Style="{StaticResource ToolboxButton}"
-                                     Checked="ToolEraser_Checked">
+                                     Checked="ToolEraser_Checked"
+                                     ToolTip="Radieră: șterge liniile/pereții desenați (stroke-uri InkCanvas). Nu șterge obstacolele plasate — pentru acestea, click dreapta pe obstacol.">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="Eraser" Width="13" Height="13"
                                                             VerticalAlignment="Center" Margin="0,0,8,0"/>

@@ -205,6 +205,7 @@ public partial class MainWindow : Window
                 // 5. draw the router indicator only on the Optimized canvas
                 DrawOptimalRouterOnOptimizedCanvas(optimalPosition);
 
+                _viewModel.IsProcessing   = false;
                 _viewModel.StatusMessage =
                     $"Optimizare completă [{bandLabel} · TX≈{calibratedTx:F1} dBm] · " +
                     $"Poziție optimă: ({optimalPosition.X:F0}, {optimalPosition.Y:F0}). " +
@@ -212,6 +213,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                _viewModel.IsProcessing   = false;
                 _viewModel.StatusMessage = $"Eroare calcul AI: {ex.Message}";
                 MessageBox.Show($"Eroare la calculul poziției optime:\n{ex.Message}",
                     "Eroare AI", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -235,17 +237,18 @@ public partial class MainWindow : Window
                 var heatmap = await Task.Run(() =>
                 {
                     var service = new HeatmapService();
-                    return service.GenerateHeatmap(filteredPoints, obstacles, strokes, m.Width, m.Height, m.Scale);
+                    return service.GenerateHeatmap(filteredPoints, obstacles, strokes, m.Width, m.Height, m.Scale, m.Channel);
                 });
 
                 if (heatmap != null && heatmap.CanFreeze)
                     heatmap.Freeze();
 
                 _viewModel.HeatmapOverlay = heatmap;
+                _viewModel.IsProcessing   = false;
 
                 // regenerate the dead zone overlay if active
                 if (_viewModel.IsDeadZoneOverlayActive)
-                    await RegenerateDeadZoneOverlayAsync(filteredPoints, obstacles, strokes, m.Width, m.Height, m.Scale);
+                    await RegenerateDeadZoneOverlayAsync(filteredPoints, obstacles, strokes, m.Width, m.Height, m.Scale, m.Channel);
 
                 string calibrareInfo = _viewModel.IsCalibrated
                     ? $"calibrat: {_viewModel.PixelsPerMeter:F1} px/m"
@@ -257,6 +260,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                _viewModel.IsProcessing  = false;
                 _viewModel.StatusMessage = $"Eroare heatmap: {ex.Message}";
             }
         });
@@ -270,6 +274,9 @@ public partial class MainWindow : Window
 
             if (e.PropertyName == nameof(_viewModel.AfterStats) && _viewModel.AfterStats != null)
                 UpdateStatsBarWidths(_viewModel.AfterStats);
+
+            if (e.PropertyName == nameof(_viewModel.CentralViewMode))
+                AnimateViewTransition();
         };
 
         // inject access to coverage stats into DoctorPanel (for PDF export)
@@ -1182,21 +1189,22 @@ public partial class MainWindow : Window
             return new HeatmapPoint(p.X, p.Y, net?.SignalStrength ?? -100);
         }).Where(hp => hp.SignalStrength > -100).ToList();
 
-        await RegenerateDeadZoneOverlayAsync(filteredPoints, obstacles, strokes, w, h, scale);
+        await RegenerateDeadZoneOverlayAsync(filteredPoints, obstacles, strokes, w, h, scale,
+            _viewModel.SelectedNetwork?.Channel ?? 1);
     }
 
     private async Task RegenerateDeadZoneOverlayAsync(
         List<HeatmapPoint> points,
         List<MapElement> obstacles,
         System.Windows.Ink.StrokeCollection strokes,
-        int w, int h, double scale)
+        int w, int h, double scale, int channel = 1)
     {
         var overlay = await Task.Run(() =>
         {
             var svc = new HeatmapService();
             return svc.GenerateDeadZoneOverlay(
                 points, obstacles, strokes, w, h, scale,
-                _viewModel.DeadZoneThreshold);
+                _viewModel.DeadZoneThreshold, channel);
         });
         _viewModel.DeadZoneOverlay = overlay;
     }
@@ -1638,6 +1646,27 @@ public partial class MainWindow : Window
     /// updates the width of the signal distribution bars in the AI Analysis panel.
     /// the bars are Border elements with x:Name; width is calculated proportionally to the container.
     /// </summary>
+    private void AnimateViewTransition()
+    {
+        FrameworkElement? panel = _viewModel.CentralViewMode switch
+        {
+            CentralViewMode.Normal    => NormalViewPanel,
+            CentralViewMode.Optimized => OptimizedViewPanel,
+            CentralViewMode.Doctor    => DoctorViewPanel,
+            CentralViewMode.Sysadmin  => SysadminTerminal,
+            _                         => null
+        };
+        if (panel == null) return;
+
+        var fade = new System.Windows.Media.Animation.DoubleAnimation(0, 1,
+            new Duration(TimeSpan.FromMilliseconds(180)))
+        {
+            EasingFunction = new System.Windows.Media.Animation.CubicEase
+                { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+        };
+        panel.BeginAnimation(UIElement.OpacityProperty, fade);
+    }
+
     private void UpdateStatsBarWidths(WifiSignalOptimizer.Models.CoverageStats stats)
     {
         // wait for layout to be ready, then set the widths

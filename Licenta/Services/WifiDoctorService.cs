@@ -175,18 +175,24 @@ public class WifiDoctorService : IWifiDoctorService
     /// </summary>
     private void AnalyzeSpeedPotential(NetworkHealthReport report, WifiNetwork target, List<WifiNetwork> neighbors)
     {
-        // theoretical max speed based on the WiFi standard
-        int theoreticalSpeed = target.Channel > 14 ? 866 : 300; // Mbps (estimated 802.11ac vs 802.11n)
+        // Shannon capacity: C = B * log2(1 + SNR_linear)
+        // bandwidth per band: 2.4 GHz=20 MHz, 5 GHz=80 MHz (802.11ac/ax), 6 GHz=160 MHz (WiFi 6E)
+        double bandwidthMHz = target.Channel > 177 ? 160.0 : target.Channel > 14 ? 80.0 : 20.0;
+        double snrLinear    = Math.Pow(10.0, target.EstimatedSnr / 10.0);
+        double shannonMbps  = bandwidthMHz * Math.Log2(1.0 + snrLinear);
 
-        // degradation factors
-        double signalFactor = Math.Clamp((target.SignalStrength + 100) / 100.0, 0, 1);
+        // protocol efficiency: ~65% for 5/6 GHz 802.11ax, ~55% for 2.4 GHz 802.11n/ac
+        double efficiency     = target.Channel > 14 ? 0.65 : 0.55;
+        int theoreticalSpeed  = (int)(shannonMbps * efficiency);
+
         double congestionFactor = 1.0 - (report.CongestionIndex / 150.0);
-
-        int estimatedRealSpeed = (int)(theoreticalSpeed * signalFactor * congestionFactor);
+        int estimatedRealSpeed  = (int)(theoreticalSpeed * congestionFactor);
 
         report.TheoreticalMaxSpeed = $"{theoreticalSpeed} Mbps";
-        report.EstimatedRealSpeed = $"{estimatedRealSpeed} Mbps";
-        report.SpeedEfficiency = (int)((estimatedRealSpeed / (double)theoreticalSpeed) * 100);
+        report.EstimatedRealSpeed  = $"{estimatedRealSpeed} Mbps";
+        report.SpeedEfficiency     = theoreticalSpeed > 0
+            ? (int)((estimatedRealSpeed / (double)theoreticalSpeed) * 100)
+            : 0;
     }
 
     /// <summary>
@@ -301,12 +307,19 @@ public class WifiDoctorService : IWifiDoctorService
         try
         {
             var mlContext = new MLContext(seed: 0);
+
+            // normalize features to [0,1] so K-Means is not dominated by InterferenceScore
+            // (which can be 0-1000+, vs CoChannelNeighbors which is 0-20)
+            float maxInterf = Math.Max(1f, (float)report.ChannelDetails.Max(c => c.InterferenceScore));
+            float maxCoCh   = Math.Max(1f, (float)report.ChannelDetails.Max(c => c.CoChannelNeighbors));
+            float maxAdj    = Math.Max(1f, (float)report.ChannelDetails.Max(c => c.AdjacentNeighbors));
+
             var channelDataList = report.ChannelDetails.Select(c => new ChannelData
             {
-                Channel = c.Channel,
-                InterferenceScore = (float)c.InterferenceScore,
-                CoChannelNeighbors = (float)c.CoChannelNeighbors,
-                AdjacentNeighbors = (float)c.AdjacentNeighbors
+                Channel            = c.Channel,
+                InterferenceScore  = (float)c.InterferenceScore  / maxInterf,
+                CoChannelNeighbors = (float)c.CoChannelNeighbors / maxCoCh,
+                AdjacentNeighbors  = (float)c.AdjacentNeighbors  / maxAdj
             }).ToList();
 
             var trainingData = mlContext.Data.LoadFromEnumerable(channelDataList);
