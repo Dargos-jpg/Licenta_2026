@@ -362,7 +362,7 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Claude Code (setari locale / AI)
+# Setari locale editor si unelte
 .claude/
 CLAUDE.md
 CLAUDE.local.md
