@@ -361,3 +361,21 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Claude Code (setari locale / AI)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+
+# Fisiere sensibile
+.env
+.env.*
+*.pem
+*.key
+*.snk
+secrets.json
+appsettings.*.local.json
+
+# Fisiere temporare rezultate din scripturi
+*pdf_v6_text.txt
